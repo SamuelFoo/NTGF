@@ -20,10 +20,10 @@ class GlobalParams:
     theta_ip: float = 0 # Angle of applied field about z, the quantization axis
     
     # Tunnelling parameters. Should be length nlayers-1.
-    ts: np.ndarray = field(default_factory=lambda: np.zeros(100) + 0.005)
-    cyclic_tunnelling: bool = False     # Whether the last layer tunnels to the first layer
+    ts: np.ndarray = field(default_factory=lambda: np.zeros(100) + 0.9)
+    cyclic_tunnelling: bool = True     # Whether the last layer tunnels to the first layer
     
-    a: float = 3.905e-10  # lattice parameter
+    a: float = 3.30e-10  # lattice parameter
     
     interface_normal: int = 3       # direction of broken inversion symmetry. x=1,y=2,z=3
     
@@ -38,7 +38,7 @@ class GlobalParams:
     m_symmetry_line: float = 0
     lattice_symmetry: str = '4mm'
     use_kspace_subsampling: bool = True
-    use_4mm_symmetry= False
+    use_4mm_symmetry= True
 
     # The fraction of the number of points to aim for when subsampling. 1 is no subsampling, 
     # 0.1 is 10% the number of points. Default 0.1.

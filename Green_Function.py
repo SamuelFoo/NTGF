@@ -188,7 +188,6 @@ def GKTH_Greens(p, layers, density_grid=None, compute_grid=None, maxCalcs=500, m
 def calculate_ksum(n, nlayers, npointscalc, base_m, imaginary_identity_m, compute_idxs, 
                    D_factors, overall_multiplier_flat, random_sampling_max, p, verbose, normalisation_factor):
     Fs_ksum = np.zeros(nlayers)
-    hbar = 6.582119569e-16
     w = (2 * n + 1) * np.pi * p.T
     ws = imaginary_identity_m * w
     Fupdowns = np.zeros((nlayers, npointscalc))

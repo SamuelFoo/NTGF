@@ -1,6 +1,6 @@
 import numpy as np
 
-def GKTH_flipflip(m, use_4mm_symmetry=True, use_kspace_subsampling=False, density_grid=None):
+def GKTH_flipflip(m, use_4mm_symmetry=True, use_kspace_subsampling=True, density_grid=None):
     """
     GKTH_flipflip constructs a full matrix out of a sub-calculated matrix
     from the symmetry used. E.g., the new Fs sum is often calculated only on

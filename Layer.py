@@ -9,7 +9,7 @@ class Layer:
 
     def __init__(self, n=None):
         #Superconductivity
-        self.Delta_0 = 0.05       #Delta_0
+        self.Delta_0 = 0.03       #Delta_0
         self.symmetry = "s"     #Symmetry of the superconductor: s=swave d=dwave or n=normal
         self._lambda = 1       #Superconducting coupling strength
         self.phi = 0           #Superconducting phase
@@ -25,8 +25,8 @@ class Layer:
         
         #Electronic Spectrum
         self.N0 = 1            #Density of states at Fermi surface, just normalised to 1 for now
-        self.tNN = -1.2     #Nearest neighbour hopping parameter in eV
-        self.tNNN = -0.12    #Next-nearest neighbour hopping parameter in eV
+        self.tNN = -1.5     #Nearest neighbour hopping parameter in eV
+        self.tNNN = -0.15    #Next-nearest neighbour hopping parameter in eV
         self.mu = 1.5      #Chemical potential in eV
         self.dispersion_type = "tb"     #Type of dispersion
         

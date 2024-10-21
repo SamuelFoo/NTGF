@@ -24,7 +24,10 @@ def GKTH_find_spectrum(p, layers):
     for i in range(nkpoints):
         #print(f"Hamiltonian at i={i}")
         for j in range(nkpoints):
-            eigenvalues[i, j, :] = np.linalg.eigvals(Hs[:, :, i, j])
+            try:
+                eigenvalues[i, j, :] = np.linalg.eigvals(Hs[:, :, i, j])
+            except:
+                eigenvalues[i, j, :] = np.nan
         #print(f"Hamiltonian at i={i}")
     return eigenvalues
 

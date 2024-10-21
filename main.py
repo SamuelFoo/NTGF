@@ -7,12 +7,36 @@ from H_eig import GKTH_find_spectrum
 from k_space_flipping import GKTH_flipflip
 from Green_Function import GKTH_Greens
 from self_consistency_delta import GKTH_self_consistency_1S
+from dataclasses import field
 
 p = GlobalParams()
-layers = [Layer()]
+Nb = Layer()
+layers = [Nb, Nb, Nb]
 
-delta,_, _ = GKTH_self_consistency_1S(p,layers)
+ts_list = []
 
+fig = plt.figure()
+for i in range(10):
+    ts = 0.9 + i/50
+    p.ts = np.zeros(100) + ts
+    delta_list = []
+    tNN_list = []
+    for j in range(10):
+        print("current iteration:", i, j)
+        ts_list.append(ts)
+        tNN = -1 - j/20
+        Nb.tNN = tNN
+        Nb.tNNN = Nb.tNN * 0.1
+        tNN_list.append(tNN)
+        delta,_, _ = GKTH_self_consistency_1S(p,layers)
+        delta_list.append(delta)
+    plt.plot(tNN_list, delta_list, label = f"{ts:.2f}")
+    
+plt.xlabel("tNN (eV)")
+plt.ylabel("delta_best_fit (eV)")
+plt.legend()
+
+"""
 # Assuming GKTH_find_spectrum and GKTH_flipflip are defined properly
 kx = np.array(p.k1)
 ky = np.array(p.k2)
@@ -43,7 +67,7 @@ fig.colorbar(surf)
 ax.set_xlabel('$k_x$')
 ax.set_ylabel('$k_y$')
 ax.set_zlabel('Energy')
-ax.set_title('Energy Spectrum')
+ax.set_title('Energy Spectrum')"""
 
 #print("gap is ",delta)
 plt.show()

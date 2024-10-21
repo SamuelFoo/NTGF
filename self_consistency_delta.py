@@ -33,7 +33,7 @@ def GKTH_self_consistency_1S(p, layers, layers_to_check=[0], catch_first_order=T
         idx = layers_to_check[0]
         residual = layers[idx]._lambda * p.T * np.abs(Fs_sums[idx]) - Delta_0_fit
         residual_history.append([Delta_0_fit, residual])
-        print(f"pos delta_0 residual: {Fs_sums[idx]:.2f} {Delta_0_fit:.3f} {residual:.4f}")
+        print(f"pos delta_0 residual: {Fs_sums[idx]:.2f} {Delta_0_fit:.3e} {residual:.4e}")
         return residual
 
     # Newton-Raphson method for root-finding
@@ -102,6 +102,7 @@ def GKTH_self_consistency_1S(p, layers, layers_to_check=[0], catch_first_order=T
             Delta = sol.root
     elif f1 < 0 and f2 < 0:  # If -- then use Newton-Raphson method
         if catch_first_order:
+            print("into Newton")
             Delta = newton_raphson(max_Delta, f2, tol)
         else:
             Delta = 0
@@ -109,8 +110,10 @@ def GKTH_self_consistency_1S(p, layers, layers_to_check=[0], catch_first_order=T
     # Set the calculated Delta for the layers being checked
     for j in layers_to_check:
         layers[j].Delta_0 = Delta
+    
+    print(f"Solution Delta({p.T}, {p.h}) = {Delta} eV")
 
-    x_vals = np.linspace(0,0.05,30)
+    """x_vals = np.linspace(0,0.05,20)
     residuals = []
     for x in x_vals:
         res = GKTH_self_consistency_1S_residual(x)
@@ -120,6 +123,6 @@ def GKTH_self_consistency_1S(p, layers, layers_to_check=[0], catch_first_order=T
     plt.xlabel("Delta_0")
     plt.ylabel("Residual")
     plt.title("Residual vs Delta_0")
-    plt.show()
-    print(f"Solution Delta({p.T}, {p.h}) = {Delta} eV")
+    plt.show()"""
+    
     return Delta, layers, residual_history

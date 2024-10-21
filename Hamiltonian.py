@@ -43,17 +43,17 @@ def GKTH_hamiltonian(p, layers):
 
         # Electronic Spectrum
         xis = np.zeros((2, 2, p.nkpoints, p.nkpoints), dtype=complex)
-        xis[0, 0, :, :] = -L.xis(p)
-        xis[1, 1, :, :] = -L.xis(p)
+        xis[0, 0, :, :] = L.xis(p)
+        xis[1, 1, :, :] = L.xis(p)
 
         # Expand h_layer and h_global to match xis shape
-        temp_matrix = np.array([[L.h, 0], [0, -L.h - L.dE]], dtype=complex)
-        h_layer = rotate_z(rotate_y(temp_matrix, -L.theta), -L.theta_ip)
+        temp_matrix = np.array([[-L.h, 0], [0, L.h + L.dE]], dtype=complex)
+        h_layer = rotate_z(rotate_y(temp_matrix, L.theta), L.theta_ip)
         h_layer = np.repeat(h_layer[:, :, np.newaxis, np.newaxis], p.nkpoints, axis=2)
         h_layer = np.repeat(h_layer, p.nkpoints, axis=3)
 
-        temp_matrix = np.array([[p.h, 0], [0, -p.h]], dtype=complex)
-        h_global = rotate_z(rotate_y(temp_matrix, -p.theta), -p.theta_ip)
+        temp_matrix = np.array([[-p.h, 0], [0, p.h]], dtype=complex)
+        h_global = rotate_z(rotate_y(temp_matrix, p.theta), p.theta_ip)
         h_global = np.repeat(h_global[:, :, np.newaxis, np.newaxis], p.nkpoints, axis=2)
         h_global = np.repeat(h_global, p.nkpoints, axis=3)
 

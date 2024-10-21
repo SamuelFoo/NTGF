@@ -64,7 +64,7 @@ def GKTH_ksubsample(p, layers):
     nlayers = len(layers)
     eigenvalues = GKTH_find_spectrum(p, layers)  # Needs implementation
 
-    if p.use_kspace_subsampling:
+    if p.use_kspace_subsampling and not np.isnan(eigenvalues).any():
         # Compute the average spectrum
         avg_spectrum = np.prod(np.abs(eigenvalues), axis=2) ** (1 / (4 * nlayers))
 
