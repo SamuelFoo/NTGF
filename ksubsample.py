@@ -34,31 +34,38 @@ def GKTH_ksubsample(p, layers):
 
     # Function for making and refining the compute and density grids
     def make_grid(initial_spectrum, scale):
-        density_grid_initial = np.round(np.log((scale * initial_spectrum) ** (1/spread)))
-        density_grid_initial = np.clip(density_grid_initial, 0, max(block_sizes))
+        # Calculate density grid initial values
+        density_grid_initial = np.round(np.log((scale * initial_spectrum) ** (1 / spread)))
+        density_grid_initial[density_grid_initial < 0] = 0
+        density_grid_initial[density_grid_initial > max(block_sizes)] = max(block_sizes)
         density_grid_initial = 2 ** density_grid_initial
 
-        # Refining the grid so it is in blocks of 1x1, 2x2, 4x4, 8x8, 16x16
+        # Initialize density and compute grids
         density_grid = np.ones((p.nkpoints, p.nkpoints))
-        compute_grid = np.zeros((p.nkpoints, p.nkpoints))
-        for b in 2 ** np.array(block_sizes):
-            for i in range(0, p.nkpoints, b):
-                for j in range(0, p.nkpoints, b):
-                    block = density_grid_initial[i:i+b, j:j+b]
-                    if np.all(block >= b):
-                        density_grid[i:i+b, j:j+b] = b
-                        compute_grid[i:i+b, j:j+b] = 0
-                        compute_grid[i, j] = 1
+        compute_grid = np.ones((p.nkpoints, p.nkpoints))
 
+        # Process grid in blocks
+        for b in 2 ** np.array(block_sizes):
+            for i in range(p.nkpoints // b):
+                for j in range(p.nkpoints // b):
+                    # Check if all values in the block are greater than or equal to b
+                    if np.all(density_grid_initial[i * b : (i + 1) * b, j * b : (j + 1) * b] >= b):
+                        density_grid[i * b : (i + 1) * b, j * b : (j + 1) * b] = b
+                        compute_grid[i * b : (i + 1) * b, j * b : (j + 1) * b] = 0
+                        compute_grid[i * b, j * b] = 1
+
+        # Apply lattice symmetry adjustments
         if p.lattice_symmetry == '4mm':
             for i in range(1, p.nkpoints):
                 for j in range(i):
                     compute_grid[i, j] = 0
         elif p.lattice_symmetry == 'm':
-            compute_grid[:p.nkpoints//2, :p.nkpoints//2] = 0
-            compute_grid[p.nkpoints//2:, p.nkpoints//2:] = 0
+            compute_grid[: p.nkpoints // 2, : p.nkpoints // 2] = 0
+            compute_grid[p.nkpoints // 2 :, p.nkpoints // 2 :] = 0
 
-        npoints = np.sum(density_grid**-2)
+        # Calculate the number of points
+        npoints = np.sum(density_grid ** -2)
+
         return npoints, density_grid, compute_grid
 
     nlayers = len(layers)

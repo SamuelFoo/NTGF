@@ -15,13 +15,13 @@ class GlobalParams:
     
     # Properties
     T: float = 5 * kB   # this is 5 K
-    h: float = 0        # Global applied field strength
+    h: float = 0.015        # Global applied field strength
     theta: float = 0    # Angle of applied field about y, away from quantization axis z
     theta_ip: float = 0 # Angle of applied field about z, the quantization axis
     
     # Tunnelling parameters. Should be length nlayers-1.
-    ts: np.ndarray = field(default_factory=lambda: np.zeros(100) + 0.9)
-    cyclic_tunnelling: bool = True     # Whether the last layer tunnels to the first layer
+    ts: np.ndarray = field(default_factory=lambda: np.zeros(100) + 0.1)
+    cyclic_tunnelling: bool = False     # Whether the last layer tunnels to the first layer
     
     a: float = 3.30e-10  # lattice parameter
     

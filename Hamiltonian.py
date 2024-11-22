@@ -90,7 +90,7 @@ def GKTH_hamiltonian(p, layers):
         m[idx+3, idx, :, :] = np.exp(-1j * L.phi) * L.Ds(p)
 
     # Tunneling between layers
-    signs = [-1, -1, 1, 1]
+    signs = [1, 1, -1, -1]
     for i in range(nlayers - 1):
         idx = (i * 4)
         for j in range(4):

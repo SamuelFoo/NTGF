@@ -11,11 +11,11 @@ from dataclasses import field
 
 p = GlobalParams()
 Nb = Layer()
-layers = [Nb, Nb, Nb]
+layers = [Nb]
 
 ts_list = []
 
-fig = plt.figure()
+"""fig = plt.figure()
 for i in range(10):
     ts = 0.9 + i/50
     p.ts = np.zeros(100) + ts
@@ -34,9 +34,9 @@ for i in range(10):
     
 plt.xlabel("tNN (eV)")
 plt.ylabel("delta_best_fit (eV)")
-plt.legend()
+plt.legend()"""
 
-"""
+
 # Assuming GKTH_find_spectrum and GKTH_flipflip are defined properly
 kx = np.array(p.k1)
 ky = np.array(p.k2)
@@ -54,20 +54,32 @@ energy = GKTH_find_spectrum(p, layers)
 fig = plt.figure()
 ax = fig.add_subplot(111, projection='3d')
 
+# Define a color list (using some common colors, adjust as needed)
+color_list = ['blue', 'green', 'cyan', 'yellow', 'purple', 'orange', 'brown', 'red', 'magenta']
+
 for i in range(4*len(layers)):
     energy_band = energy[:, :, i]
+    print(f"{energy[0,0,i]:.3}")
     new_band = GKTH_flipflip(energy_band)
-    surf = ax.plot_surface(kx, ky, new_band, cmap='viridis', alpha=0.5)
-
-fig.colorbar(surf)
+    # Check for NaNs or infinities before plotting
+    if np.isnan(new_band).any() or np.isinf(new_band).any():
+        print(f"Skipping band {i} due to NaN or infinity values.")
+        continue
+    # Set the color, cycling through color_list
+    color = color_list[i % len(color_list)]
+    ax.scatter(kx, ky, new_band, color = color, alpha=0.1, s=1)
+    #surf = ax.plot_surface(kx, ky, new_band, cmap='viridis', alpha=0.5)
+Delta, layers, residual_history = GKTH_self_consistency_1S(p, layers)
+#Fs_sums, matsubara_freqs = GKTH_Greens(p, layers, verbose = True)
+#fig.colorbar(surf)
 #ticks = np.linspace(-max_val_kx, max_val_kx, 5)  # Adjust the number of ticks as needed
 #ax.set_xticks(ticks)
 #ax.set_yticks(ticks)
 
 ax.set_xlabel('$k_x$')
 ax.set_ylabel('$k_y$')
-ax.set_zlabel('Energy')
-ax.set_title('Energy Spectrum')"""
+ax.set_zlabel('Energy (eV)')
+ax.set_title('Energy Spectrum')
 
 #print("gap is ",delta)
 plt.show()

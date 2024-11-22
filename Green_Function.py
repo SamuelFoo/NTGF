@@ -6,7 +6,7 @@ from k_space_flipping import GKTH_flipflip
 from scipy.linalg import inv
 import matplotlib.pyplot as plt
 
-def GKTH_Greens(p, layers, density_grid=None, compute_grid=None, maxCalcs=500, maxMatsubara=1e7, verbose=False):
+def GKTH_Greens(p, layers, density_grid=None, compute_grid=None, maxCalcs=100, maxMatsubara=1e7, verbose=False):
     """
     GKTH_Greens function to compute the anomalous Green's function over k and Matsubara frequencies.
 
@@ -163,7 +163,7 @@ def GKTH_Greens(p, layers, density_grid=None, compute_grid=None, maxCalcs=500, m
                 use_kspace_subsampling = p.use_kspace_subsampling, 
                 density_grid = density_grid
             )
-        plt.figure(figsize=(12, 6))  # Define the figure size
+        plt.figure(figsize=(12, 5))  # Define the figure size
         
         # First subplot: pcolor plot of real(F_kresolved_final)
         plt.subplot(1, 2, 1)
@@ -173,7 +173,7 @@ def GKTH_Greens(p, layers, density_grid=None, compute_grid=None, maxCalcs=500, m
         
         # Second subplot: plot of Matsubara frequencies vs abs(ksums)
         plt.subplot(1, 2, 2)
-        plt.plot(matsubara_freqs, np.abs(ksums), 'o-')
+        plt.plot(matsubara_freqs, np.abs(ksums), 'o')
         plt.xlim(0,5200)
         plt.title('Matsubara Frequencies vs |ksums|')
         plt.xlabel('Matsubara Frequencies')
@@ -216,40 +216,3 @@ def calculate_ksum(n, nlayers, npointscalc, base_m, imaginary_identity_m, comput
     #print(Fs_ksum)
     return Fs_ksum
 
-"""def calculate_ksum(n, nlayers, npointscalc, base_m, imaginary_identity_m, compute_idxs,
-                   D_factors, overall_multiplier_flat, random_sampling_max, p, verbose, normalisation_factor):
-    # Initialize the sum for each layer
-    Fs_ksum = np.zeros(nlayers)
-    # Compute the Matsubara frequency
-    w = (2 * n + 1) * np.pi * p.T
-    ws = imaginary_identity_m * w
-    # Allocate arrays for Fupdown and Fdownup
-    Fupdowns = np.zeros((nlayers, npointscalc))
-    Fdownups = np.zeros((nlayers, npointscalc))
-
-    # Generate the random sampling of k-points using random_sampling_max
-    idx_samps = compute_idxs[:, 0] + np.round(random_sampling_max * np.random.rand(npointscalc)).astype(int) \
-                + p.nkpoints * np.round(random_sampling_max * np.random.rand(npointscalc)).astype(int)
-    # Ensure idx_samps stays within bounds of base_m's third axis size
-    idx_samps = np.mod(idx_samps, base_m.shape[2])
-    # Loop over all sampled k-points
-    for i in range(npointscalc):
-        idx_samp = idx_samps[i]
-        # Invert the Hamiltonian matrix for the given k-point and Matsubara frequency
-        m_inv = np.linalg.inv(base_m[:, :, compute_idxs[i, 0], compute_idxs[i, 1]] + ws)
-        for j in range(nlayers):
-            # Extract Fupdown and Fdownup for each layer
-            print(m_inv[4 * j, 4 * j + 3], m_inv[4 * j + 1, 4 * j + 2])
-            Fupdowns[j, i] = m_inv[4 * j, 4 * j + 3] * D_factors[compute_idxs[i, 0], compute_idxs[i, 1], j]
-            Fdownups[j, i] = m_inv[4 * j + 1, 4 * j + 2] * D_factors[compute_idxs[i, 0], compute_idxs[i, 1], j]
-            
-    # Calculate the k-space sum over all layers
-    for layer in range(nlayers):
-        Fs_ksum[layer] = normalisation_factor * np.sum(overall_multiplier_flat * (Fupdowns[layer, :] - Fdownups[layer, :]))
-
-        # Store verbose data if required
-        if verbose:
-            F_kresolved = Fupdowns[layer, :] - Fdownups[layer, :]
-            matsubara_freqs_unsrt = n  # Track the current Matsubara frequency for later sorting
-
-    return Fs_ksum"""

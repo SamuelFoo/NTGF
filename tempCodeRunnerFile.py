@@ -1,1 +1,1 @@
-GlobalParams
+, 'orange', 'brown', 'cyan', 'magenta', 'yellow'

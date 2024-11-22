@@ -27,6 +27,7 @@ def GKTH_find_spectrum(p, layers):
             try:
                 eigenvalues[i, j, :] = np.linalg.eigvals(Hs[:, :, i, j])
             except:
+                print("there is a nan")
                 eigenvalues[i, j, :] = np.nan
         #print(f"Hamiltonian at i={i}")
     return eigenvalues
