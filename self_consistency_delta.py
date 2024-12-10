@@ -1,9 +1,17 @@
+from typing import List
+
+import matplotlib.pyplot as plt
 import numpy as np
 from scipy.optimize import root_scalar
-from Green_Function import GKTH_Greens
-import matplotlib.pyplot as plt
 
-def GKTH_self_consistency_1S(p, layers, layers_to_check=[0], catch_first_order=True):
+from Global_Parameter import GlobalParams
+from Green_Function import GKTH_Greens
+from Layer import Layer
+
+
+def GKTH_self_consistency_1S(
+    p: GlobalParams, layers: List[Layer], layers_to_check=[0], catch_first_order=True
+):
     """
     GKTH_self_consistency_1S finds Delta for a single superconducting layer or several identical superconducting layers.
 
@@ -29,7 +37,9 @@ def GKTH_self_consistency_1S(p, layers, layers_to_check=[0], catch_first_order=T
         for i in layers_to_check:
             layers[i].Delta_0 = Delta_0_fit
         # Calculate the anomalous Green function sums
-        Fs_sums, _ = GKTH_Greens(p, layers)  # Assuming GKTH_Greens_radial is defined elsewhere
+        Fs_sums, _ = GKTH_Greens(
+            p, layers
+        )  # Assuming GKTH_Greens_radial is defined elsewhere
         idx = layers_to_check[0]
         residual = layers[idx]._lambda * p.T * np.abs(Fs_sums[idx]) - Delta_0_fit
         residual_history.append([Delta_0_fit, residual])
@@ -48,7 +58,11 @@ def GKTH_self_consistency_1S(p, layers, layers_to_check=[0], catch_first_order=T
             fx = GKTH_self_consistency_1S_residual(x)
             if fx > 0:
                 try:
-                    sol = root_scalar(GKTH_self_consistency_1S_residual, bracket=[x, min_neg_x], xtol=tol)
+                    sol = root_scalar(
+                        GKTH_self_consistency_1S_residual,
+                        bracket=[x, min_neg_x],
+                        xtol=tol,
+                    )
                     x = sol.root
                 except ValueError:
                     x = 0
@@ -61,7 +75,11 @@ def GKTH_self_consistency_1S(p, layers, layers_to_check=[0], catch_first_order=T
                     break
                 else:
                     try:
-                        sol = root_scalar(GKTH_self_consistency_1S_residual, x0=x + 2 * fx / dfdx, xtol=tol)
+                        sol = root_scalar(
+                            GKTH_self_consistency_1S_residual,
+                            x0=x + 2 * fx / dfdx,
+                            xtol=tol,
+                        )
                         x = sol.root
                     except ValueError:
                         x = 0
@@ -97,8 +115,12 @@ def GKTH_self_consistency_1S(p, layers, layers_to_check=[0], catch_first_order=T
                 x2 *= 2
                 f2 = GKTH_self_consistency_1S_residual(x2)
                 if f2 > 0 and x2 > 1e5:
-                    raise RuntimeError("Can't find a negative change in Delta. Try increasing initial Delta_0 value.")
-            sol = root_scalar(GKTH_self_consistency_1S_residual, bracket=[x1, x2], xtol=tol)
+                    raise RuntimeError(
+                        "Can't find a negative change in Delta. Try increasing initial Delta_0 value."
+                    )
+            sol = root_scalar(
+                GKTH_self_consistency_1S_residual, bracket=[x1, x2], xtol=tol
+            )
             Delta = sol.root
     elif f1 < 0 and f2 < 0:  # If -- then use Newton-Raphson method
         if catch_first_order:
@@ -110,20 +132,20 @@ def GKTH_self_consistency_1S(p, layers, layers_to_check=[0], catch_first_order=T
     # Set the calculated Delta for the layers being checked
     for j in layers_to_check:
         layers[j].Delta_0 = Delta
-    
+
     print(f"Solution Delta({p.T}, {p.h}) = {Delta} eV")
 
-    x_vals = np.linspace(0,0.03,50)
+    x_vals = np.linspace(0, 0.03, 50)
     residuals = []
     for x in x_vals:
         res = GKTH_self_consistency_1S_residual(x)
         residuals.append(res)
     plt.figure(figsize=(12, 6))
     plt.scatter(x_vals, residuals)
-    plt.axhline(y=0, color='gray', linestyle='--', linewidth=1)
+    plt.axhline(y=0, color="gray", linestyle="--", linewidth=1)
     plt.xlabel("Delta_0 (eV)")
     plt.ylabel("Residual (eV)")
     plt.title("Residual vs Delta_0")
     plt.show()
-    
+
     return Delta, layers, residual_history
