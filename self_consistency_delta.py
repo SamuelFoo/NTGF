@@ -37,9 +37,7 @@ def GKTH_self_consistency_1S(
         for i in layers_to_check:
             layers[i].Delta_0 = Delta_0_fit
         # Calculate the anomalous Green function sums
-        Fs_sums, _ = GKTH_Greens(
-            p, layers
-        )  # Assuming GKTH_Greens_radial is defined elsewhere
+        Fs_sums = GKTH_Greens(p, layers)
         idx = layers_to_check[0]
         residual = layers[idx]._lambda * p.T * np.abs(Fs_sums[idx]) - Delta_0_fit
         residual_history.append([Delta_0_fit, residual])

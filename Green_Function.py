@@ -17,7 +17,7 @@ def GKTH_Greens(
     verbose=False,
 ):
     """
-    GKTH_Greens function to compute the anomalous Green's function over k and Matsubara frequencies.
+    Computes the anomalous Green's function over k and Matsubara frequencies.
 
     Args:
     p: Parameter object
@@ -188,20 +188,24 @@ def GKTH_Greens(
             np.trapz(matsubara_freqs[:itr], ksums[:itr, layer]) + 0.5 * ksums[0, layer]
         )
 
-    for j in range(nlayers):
-        for i in range(npointscalc):
-            F_kresolved_symm[j, compute_idxs[i, 0], compute_idxs[i, 1]] = (
-                np.trapz(matsubara_freqs[:itr], F_kresolved[:itr, j, i])
-                + 0.5 * F_kresolved[0, j, i]
+    if verbose:
+        for j in range(nlayers):
+            for i in range(npointscalc):
+                F_kresolved_symm[j, compute_idxs[i, 0], compute_idxs[i, 1]] = (
+                    np.trapz(matsubara_freqs[:itr], F_kresolved[:itr, j, i])
+                    + 0.5 * F_kresolved[0, j, i]
+                )
+            F_kresolved_final[j, :, :] = GKTH_flipflip(
+                F_kresolved_symm[j, :, :],
+                use_4mm_symmetry=p.use_4mm_symmetry,
+                use_kspace_subsampling=p.use_kspace_subsampling,
+                density_grid=density_grid,
             )
-        F_kresolved_final[j, :, :] = GKTH_flipflip(
-            F_kresolved_symm[j, :, :],
-            use_4mm_symmetry=p.use_4mm_symmetry,
-            use_kspace_subsampling=p.use_kspace_subsampling,
-            density_grid=density_grid,
-        )
 
-    return matsubara_freqs, ksums, F_kresolved_final
+        return matsubara_freqs, ksums, F_kresolved_final
+
+    else:
+        return Fs_sums
 
 
 def calculate_ksum(
