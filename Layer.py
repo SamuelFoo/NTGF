@@ -15,7 +15,7 @@ class Layer:
         self.symmetry = (
             "s"  # Symmetry of the superconductor: s=swave d=dwave or n=normal
         )
-        self._lambda = 1  # Superconducting coupling strength
+        self._lambda = 0.1  # Superconducting coupling strength
         self.phi = 0  # Superconducting phase
 
         # Ferromagnetism
@@ -29,9 +29,9 @@ class Layer:
 
         # Electronic Spectrum
         self.N0 = 1  # Density of states at Fermi surface, just normalised to 1 for now
-        self.tNN = -1.3  # Nearest neighbour hopping parameter in eV
-        self.tNNN = -0.13  # Next-nearest neighbour hopping parameter in eV
-        self.mu = 1.5  # Chemical potential in eV
+        self.tNN = -0.15  # Nearest neighbour hopping parameter in eV
+        self.tNNN = 0  # Next-nearest neighbour hopping parameter in eV
+        self.mu = 0.105  # Chemical potential in eV
         self.dispersion_type = "tb"  # Type of dispersion
 
         # Handle array creation if n is provided
