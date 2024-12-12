@@ -13,44 +13,36 @@ p = GlobalParams()
 Nb = Layer()
 layers = [Nb]
 
-ts_list = []
-
-"""fig = plt.figure()
-for i in range(10):
-    ts = 0.9 + i/50
-    p.ts = np.zeros(100) + ts
-    delta_list = []
-    tNN_list = []
-    for j in range(10):
-        print("current iteration:", i, j)
-        ts_list.append(ts)
-        tNN = -1 - j/20
-        Nb.tNN = tNN
-        Nb.tNNN = Nb.tNN * 0.1
-        tNN_list.append(tNN)
-        delta,_, _ = GKTH_self_consistency_1S(p,layers)
-        delta_list.append(delta)
-    plt.plot(tNN_list, delta_list, label = f"{ts:.2f}")
-    
-plt.xlabel("tNN (eV)")
-plt.ylabel("delta_best_fit (eV)")
-plt.legend()"""
-
-
-# Assuming GKTH_find_spectrum and GKTH_flipflip are defined properly
+"""# Assuming GKTH_find_spectrum and GKTH_flipflip are defined properly
 kx = np.array(p.k1)
 ky = np.array(p.k2)
 max_val_kx = np.max(np.abs(kx))
 kx = np.linspace(-max_val_kx, max_val_kx, p.nkpoints*2)
 ky = np.linspace(-max_val_kx, max_val_kx, p.nkpoints*2)
 # Ensure kx and ky are properly ranged and meshed
-kx, ky = np.meshgrid(kx, ky)
+kx, ky = np.meshgrid(kx, ky)"""
 
-energy = GKTH_find_spectrum(p, layers)
+"""Ts=[1,4,7]
+hs = [0.0001,0.0002]
+T_init = p.T
+fig = plt.figure()
+for T in Ts:
+    p.T = T_init*T
+    gap_array = []
+    for i in range(len(hs)):
+        print("T and h are",T, hs[i])
+        p.h = hs[i]
+        gap_array.append(GKTH_self_consistency_1S(p,layers)[0])
+    plt.scatter(hs,gap_array, label = "T = "+str(T)+" K")
+plt.legend()
+plt.show()"""
+
+
+
 
 # energy is 3d array, nkpoints x nkpoints x (4*nlayers)
 # each k-point has its only eigenvalues list
-
+"""
 fig = plt.figure()
 ax = fig.add_subplot(111, projection='3d')
 
@@ -67,20 +59,17 @@ for i in range(4*len(layers)):
         continue
     # Set the color, cycling through color_list
     color = color_list[i % len(color_list)]
-    ax.scatter(kx, ky, new_band, color = color, alpha=0.1, s=1)
+    ax.scatter(kx, ky, new_band, color = color, alpha=0.1, s=1)"""
     #surf = ax.plot_surface(kx, ky, new_band, cmap='viridis', alpha=0.5)
+p.h = 0.001
+p.T = p.T*4
 Delta, layers, residual_history = GKTH_self_consistency_1S(p, layers)
-#Fs_sums, matsubara_freqs = GKTH_Greens(p, layers, verbose = True)
-#fig.colorbar(surf)
-#ticks = np.linspace(-max_val_kx, max_val_kx, 5)  # Adjust the number of ticks as needed
-#ax.set_xticks(ticks)
-#ax.set_yticks(ticks)
 
-ax.set_xlabel('$k_x$')
+"""ax.set_xlabel('$k_x$')
 ax.set_ylabel('$k_y$')
 ax.set_zlabel('Energy (eV)')
 ax.set_title('Energy Spectrum')
 
 #print("gap is ",delta)
-plt.show()
+plt.show()"""
 

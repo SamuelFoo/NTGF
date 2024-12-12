@@ -20,7 +20,7 @@ class GlobalParams:
     theta_ip: float = 0 # Angle of applied field about z, the quantization axis
     
     # Tunnelling parameters. Should be length nlayers-1.
-    ts: np.ndarray = field(default_factory=lambda: np.zeros(100) + 0.1)
+    ts: np.ndarray = field(default_factory=lambda: np.zeros(100) + 0.5)
     cyclic_tunnelling: bool = False     # Whether the last layer tunnels to the first layer
     
     a: float = 3.30e-10  # lattice parameter
@@ -34,7 +34,7 @@ class GlobalParams:
 
     # Number of kpoints: must be multiple of 8 for meshing to work with mm symmetry
     # Minimum 80 for testing, 160 or greater for real use
-    nkpoints: int = 80
+    nkpoints: int = 160
     m_symmetry_line: float = 0
     lattice_symmetry: str = '4mm'
     use_kspace_subsampling: bool = True
@@ -42,7 +42,7 @@ class GlobalParams:
 
     # The fraction of the number of points to aim for when subsampling. 1 is no subsampling, 
     # 0.1 is 10% the number of points. Default 0.1.
-    subsampling_point_fraction: float = 0.1
+    subsampling_point_fraction: float = 0.25
     use_matsubara_subsampling: bool = True
     nradials: int = 50
     ntest: int = 2000

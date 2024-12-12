@@ -106,14 +106,15 @@ def GKTH_self_consistency_1S(p, layers, layers_to_check=[0], catch_first_order=T
             Delta = newton_raphson(max_Delta, f2, tol)
         else:
             Delta = 0
-
+    else:
+        Delta = 0
     # Set the calculated Delta for the layers being checked
     for j in layers_to_check:
         layers[j].Delta_0 = Delta
     
     print(f"Solution Delta({p.T}, {p.h}) = {Delta} eV")
 
-    x_vals = np.linspace(0,0.002,50)
+    x_vals = np.linspace(0,0.002,30)
     residuals = []
     for x in x_vals:
         res = GKTH_self_consistency_1S_residual(x)
