@@ -18,7 +18,7 @@ class GlobalParams:
 
     # Properties
     T: float = 1 * kB  # this is 5 K
-    h: float = 0  # Global applied field strength
+    h: float = 0.0  # Global applied field strength
     theta: float = 0  # Angle of applied field about y, away from quantization axis z
     theta_ip: float = 0  # Angle of applied field about z, the quantization axis
 
