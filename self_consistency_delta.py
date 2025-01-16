@@ -13,21 +13,23 @@ def GKTH_self_consistency_1S(
     p: GlobalParams,
     layers: List[Layer],
     layers_to_check: list[int] = [0],
-    catch_first_order=True,
+    catch_first_order: bool = True,
 ):
-    """
-    GKTH_self_consistency_1S finds Delta for a single superconducting layer or several identical superconducting layers.
+    """Finds Delta for a single superconducting layer or several identical superconducting layers.
 
-    Inputs:
-        p : Global parameter object defining the stack and calculation parameters.
-        layers : An array of Layer objects, defining the junction structure.
-        layers_to_check : An array of integers defining which layers in the stack should have Delta calculated.
-        catch_first_order : Boolean, whether or not to search for the first-order transition if the initial zero finding fails.
+    Args:
+        p (GlobalParams): Global parameter object defining the stack and calculation parameters.
+        layers (List[Layer]): An array of Layer objects, defining the junction structure.
+        layers_to_check (list[int], optional): An array of integers defining which layers in the stack should have Delta calculated. Defaults to [0].
+        catch_first_order (bool, optional): Whether or not to search for the first-order transition if the initial zero finding fails. Defaults to True.
 
-    Outputs:
-        Delta : The gap calculated after running self-consistency.
-        layers : The array of Layer objects with updated Delta values.
-        residual_history : Array containing the checked Delta values along with the change in Delta from the self-consistency calculation.
+    Raises:
+        RuntimeError: If initial Delta_0 value is too small
+
+    Returns:
+        Delta: The gap calculated after running self-consistency.
+        layers: The array of Layer objects with updated Delta values.
+        residual_history: Array containing the checked Delta values along with the change in Delta from the self-consistency calculation.
     """
     tol = p.abs_tolerance_self_consistency_1S
     min_Delta = tol
