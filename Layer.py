@@ -41,7 +41,7 @@ class Layer:
     # Superconducting gap
     def Ds(self, p):
         # Assume GKTH_Delta is a function defined elsewhere that computes the superconducting gap
-        return GKTH_Delta(p, self, self.Delta_0)
+        return GKTH_Delta(p, self.symmetry, self.Delta_0)
 
     # Electronic spectrum
     def xis(self, p):

@@ -1,3 +1,5 @@
+from typing import List
+
 import numpy as np
 
 from Delta import GKTH_Delta
@@ -5,11 +7,12 @@ from Global_Parameter import GlobalParams
 from Hamiltonian import GKTH_hamiltonian
 from k_space_flipping import GKTH_flipflip
 from ksubsample import GKTH_ksubsample
+from Layer import Layer
 
 
 def GKTH_Greens(
     p: GlobalParams,
-    layers,
+    layers: List[Layer],
     density_grid=None,
     compute_grid=None,
     maxCalcs=100,
@@ -40,7 +43,7 @@ def GKTH_Greens(
     D_factors = np.zeros((p.nkpoints, p.nkpoints, nlayers))
 
     for i in range(nlayers):
-        D_factors[:, :, i] = 1.0 / GKTH_Delta(p, layers[i], 1)
+        D_factors[:, :, i] = 1.0 / GKTH_Delta(p, layers[i].symmetry, 1)
     D_factors[np.isnan(D_factors)] = 0
 
     normalisation_factor = p.k_step_size**2 / (2 * np.pi / p.a) ** 2

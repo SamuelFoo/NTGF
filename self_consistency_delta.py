@@ -10,7 +10,10 @@ from Layer import Layer
 
 
 def GKTH_self_consistency_1S(
-    p: GlobalParams, layers: List[Layer], layers_to_check=[0], catch_first_order=True
+    p: GlobalParams,
+    layers: List[Layer],
+    layers_to_check: list[int] = [0],
+    catch_first_order=True,
 ):
     """
     GKTH_self_consistency_1S finds Delta for a single superconducting layer or several identical superconducting layers.
