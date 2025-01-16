@@ -1,6 +1,7 @@
 import numpy as np
 
 from Delta import GKTH_Delta
+from Global_Parameter import GlobalParams
 
 
 class Layer:
@@ -39,12 +40,12 @@ class Layer:
             return [Layer() for _ in range(n)]
 
     # Superconducting gap
-    def Ds(self, p):
+    def Ds(self, p: GlobalParams):
         # Assume GKTH_Delta is a function defined elsewhere that computes the superconducting gap
         return GKTH_Delta(p, self.symmetry, self.Delta_0)
 
     # Electronic spectrum
-    def xis(self, p):
+    def xis(self, p: GlobalParams):
         if self.dispersion_type == "tb":
             return (
                 self.tNN * (np.cos(p.k1 * p.a) + np.cos(p.k2 * p.a))

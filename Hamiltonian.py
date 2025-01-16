@@ -93,10 +93,11 @@ def GKTH_hamiltonian(p: GlobalParams, layers: List[Layer]):
         )
 
         # Superconductivity matrix
-        m[idx, idx + 3, :, :] = np.exp(1j * L.phi) * L.Ds(p)
-        m[idx + 1, idx + 2, :, :] = -np.exp(1j * L.phi) * L.Ds(p)
-        m[idx + 2, idx + 1, :, :] = -np.exp(-1j * L.phi) * L.Ds(p)
-        m[idx + 3, idx, :, :] = np.exp(-1j * L.phi) * L.Ds(p)
+        GTKH_Ds = L.Ds(p)
+        m[idx, idx + 3, :, :] = np.exp(1j * L.phi) * GTKH_Ds
+        m[idx + 1, idx + 2, :, :] = -np.exp(1j * L.phi) * GTKH_Ds
+        m[idx + 2, idx + 1, :, :] = -np.exp(-1j * L.phi) * GTKH_Ds
+        m[idx + 3, idx, :, :] = np.exp(-1j * L.phi) * GTKH_Ds
 
     # Tunneling between layers
     signs = [1, 1, -1, -1]
