@@ -126,7 +126,8 @@ def GKTH_self_consistency_1S(
             Delta = newton_raphson(max_Delta, f2, tol)
         else:
             Delta = 0
-
+    else:
+        Delta = 0
     # Set the calculated Delta for the layers being checked
     for j in layers_to_check:
         layers[j].Delta_0 = Delta
