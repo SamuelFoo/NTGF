@@ -1,12 +1,8 @@
 import numpy as np
-from Global_Parameter import GlobalParams
-from Layer import Layer
-from H_eig import GKTH_find_spectrum
 from scipy.optimize import minimize_scalar
 
+from H_eig import GKTH_find_spectrum
 
-p = GlobalParams()
-layers = [Layer()]
 
 def GKTH_ksubsample(p, layers):
     """
