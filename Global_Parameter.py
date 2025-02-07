@@ -37,7 +37,7 @@ class GlobalParams:
 
     # Number of kpoints: must be multiple of 8 for meshing to work with mm symmetry
     # Minimum 80 for testing, 160 or greater for real use
-    nkpoints: int = 80
+    nkpoints: int = 300
     m_symmetry_line: float = 0
     lattice_symmetry: str = "4mm"
     use_kspace_subsampling: bool = True

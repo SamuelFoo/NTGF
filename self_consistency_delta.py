@@ -11,7 +11,7 @@ from Layer import Layer
 # Residual function for self-consistency
 def GKTH_self_consistency_1S_residual(
     Delta_0_fit: float, p: GlobalParams, layers: List[Layer], layers_to_check: List[int]
-):
+) -> np.float64:
     # Update Delta_0 for layers being checked
     for i in layers_to_check:
         layers[i].Delta_0 = Delta_0_fit
@@ -28,14 +28,15 @@ def GKTH_self_consistency_1S_iterate(
     p: GlobalParams,
     layers: List[Layer],
     layers_to_check: list[int] = [0],
+    max_Delta: float = 0.002,
 ):
-    x_vals = np.linspace(0, 0.002, 50)
+    x_vals = np.linspace(0, max_Delta, 50)
     residuals = []
     for x in x_vals:
         residual = GKTH_self_consistency_1S_residual(
             Delta_0_fit=x, p=p, layers=layers, layers_to_check=layers_to_check
         )
-        residuals.append(residual)
+        residuals.append(residual.item())
 
     return x_vals, residuals
 
@@ -44,6 +45,7 @@ def GKTH_self_consistency_1S_find_root(
     p: GlobalParams,
     layers: List[Layer],
     layers_to_check: list[int] = [0],
+    max_Delta: float = 0.002,
 ):
     """Finds Delta for a single superconducting layer or several identical superconducting layers.
 
@@ -61,7 +63,6 @@ def GKTH_self_consistency_1S_find_root(
     """
     tol = p.abs_tolerance_self_consistency_1S
     min_Delta = tol
-    max_Delta = layers[layers_to_check[0]].Delta_0
 
     # Root-finding process
     x0 = (min_Delta + max_Delta) / 2

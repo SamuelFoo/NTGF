@@ -11,15 +11,40 @@ from self_consistency_delta import (
     GKTH_self_consistency_1S_iterate,
 )
 
-DATA_DIR =  Path("data")
+DATA_DIR = Path("data")
 DATA_DIR.mkdir(exist_ok=True)
 
 PRESENTATION_MEDIA_DIR = Path("presentation_media")
 PRESENTATION_MEDIA_DIR.mkdir(exist_ok=True)
 
-def run_for_lambda(_lambda):
+
+def get_delta_vs_h(_lambda):
+    # Connect to the database
+    conn = sqlite3.connect(DATA_DIR / "residual_delta.db")
+    c = conn.cursor()
+
+    # Read the data from the database
+    c.execute("SELECT h, Delta FROM results WHERE _lambda = ?", (_lambda,))
+    rows = c.fetchall()
+
+    # Close the connection
+    conn.close()
+
+    # Process the data
+    h_list = []
+    Deltas = []
+
+    for row in rows:
+        h, Delta = row
+        h_list.append(h)
+        Deltas.append(Delta)
+
+    return h_list, Deltas
+
+
+def run_for_lambda(_lambda, h_end=1e-3, delta_end=2e-3):
     # Round to take care of floating point errors
-    h_list = np.round(np.linspace(0, 1e-3, 21), 9)
+    h_list = np.round(np.linspace(0, h_end, 21), 9)
     plot_tuples = []
     Deltas = []
 
@@ -46,12 +71,16 @@ def run_for_lambda(_lambda):
 
         # Find root where residuals are zero
         layers = [Layer(_lambda=_lambda)]
-        Delta, layers = GKTH_self_consistency_1S_find_root(p, layers)
+        Delta, layers = GKTH_self_consistency_1S_find_root(
+            p, layers, max_Delta=delta_end
+        )
         Deltas.append(Delta)
 
         # See how residuals vary with Delta to check find root
         layers = [Layer(_lambda=_lambda)]
-        x_vals, residuals = GKTH_self_consistency_1S_iterate(p, layers)
+        x_vals, residuals = GKTH_self_consistency_1S_iterate(
+            p, layers, max_Delta=delta_end
+        )
         plot_tuples.append((x_vals, residuals))
 
         # Insert the data
@@ -71,6 +100,7 @@ def run_for_lambda(_lambda):
         # Commit the changes and close the connection
         conn.commit()
         conn.close()
+
 
 def plot_for_lambda(_lambda):
     # Connect to the database
@@ -105,8 +135,8 @@ def plot_for_lambda(_lambda):
     cbar = plt.colorbar(sc)
     cbar.set_label("h (eV)")
 
-    for i, (h, (x_vals, residuals), Delta) in enumerate(zip(h_list, plot_tuples, Deltas)):
-        color = plt.cm.copper((len(h_list) - i) / len(h_list))
+    for h, (x_vals, residuals), Delta in zip(h_list, plot_tuples, Deltas):
+        color = plt.cm.copper((h - min(h_list)) / (max(h_list) - min(h_list)))
         plt.plot(x_vals, residuals, color=color)
         plt.scatter([Delta], [0], color=color, marker="x")
 
@@ -118,6 +148,17 @@ def plot_for_lambda(_lambda):
     plt.title(rf"$\lambda = {_lambda}$")
     plt.legend()
     plt.savefig(
-        PRESENTATION_MEDIA_DIR / f"residuals_delta_lambda_{_lambda}.svg", transparent=True
+        PRESENTATION_MEDIA_DIR / f"residuals_delta_lambda_{_lambda}.svg",
+        transparent=True,
+        bbox_inches="tight",
+        pad_inches=None,
     )
     plt.show()
+
+
+def drop_lambda(_lambda):
+    conn = sqlite3.connect(DATA_DIR / "residual_delta.db")
+    c = conn.cursor()
+    c.execute("DELETE FROM results WHERE _lambda = ?", (_lambda,))
+    conn.commit()
+    conn.close()
