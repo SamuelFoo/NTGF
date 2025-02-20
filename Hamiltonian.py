@@ -7,20 +7,20 @@ from Layer import Layer
 
 
 def rotate_y(m, theta):
+    """Rotation around y-axis"""
     Ry = np.array(
         [
             [np.cos(theta / 2), np.sin(theta / 2)],
             [-np.sin(theta / 2), np.cos(theta / 2)],
         ]
     )
-    Ryt = Ry.T
-    return Ry @ m @ Ryt
+    return Ry @ m @ Ry.T.conj()
 
 
 def rotate_z(m, theta_ip):
+    """Rotation around z-axis"""
     Rz = np.array([[np.exp(1j * theta_ip / 2), 0], [0, np.exp(-1j * theta_ip / 2)]])
-    Rzt = Rz.T
-    return Rz @ m @ Rzt
+    return Rz @ m @ Rz.T.conj()
 
 
 def GKTH_hamiltonian(p: GlobalParams, layers: List[Layer]):
