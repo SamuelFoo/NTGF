@@ -9,6 +9,66 @@ from ksubsample import GKTH_ksubsample
 from Layer import Layer
 
 
+def calculate_ksum(
+    n,
+    nlayers,
+    npointscalc,
+    base_m,
+    imaginary_identity_m,
+    compute_idxs,
+    D_factors,
+    overall_multiplier_flat,
+    random_sampling_max,
+    p,
+    verbose,
+    normalisation_factor,
+):
+    Fs_ksum = np.zeros(nlayers)
+    w = (2 * n + 1) * np.pi * p.T
+    ws = imaginary_identity_m * w
+    Fupdowns = np.zeros((nlayers, npointscalc))
+    Fdownups = np.zeros((nlayers, npointscalc))
+
+    idx_samps = compute_idxs[:, 0] + np.round(
+        random_sampling_max * np.random.rand(npointscalc)
+    ).astype(int)
+    +p.nkpoints * np.round(random_sampling_max * np.random.rand(npointscalc)).astype(
+        int
+    )
+
+    for i in range(npointscalc):
+        idx_samp = idx_samps[i]
+        m_inv = np.linalg.inv(
+            -base_m[:, :, compute_idxs[i, 0], compute_idxs[i, 1]] + ws
+        )
+        for j in range(nlayers):
+            # Extract Fupdown and Fdownup for each layer
+            # print(m_inv[4 * j, 4 * j + 3], m_inv[4 * j + 1, 4 * j + 2])
+            Fupdowns[j, i] = (
+                m_inv[4 * j, 4 * j + 3]
+                * D_factors[compute_idxs[i, 0], compute_idxs[i, 1], j]
+            )
+            Fdownups[j, i] = (
+                m_inv[4 * j + 1, 4 * j + 2]
+                * D_factors[compute_idxs[i, 0], compute_idxs[i, 1], j]
+            )
+
+    # Calculate the k-space sum over all layers
+    for layer in range(nlayers):
+        Fs_ksum[layer] = normalisation_factor * np.sum(
+            overall_multiplier_flat * (Fupdowns[layer, :] - Fdownups[layer, :])
+        )
+
+        # Store verbose data if required
+        if verbose:
+            F_kresolved = Fupdowns[layer, :] - Fdownups[layer, :]
+            matsubara_freqs_unsrt = (
+                n  # Track the current Matsubara frequency for later sorting
+            )
+    # print(Fs_ksum)
+    return Fs_ksum
+
+
 def GKTH_Greens(
     p: GlobalParams,
     layers: List[Layer],
@@ -208,63 +268,3 @@ def GKTH_Greens(
 
     else:
         return Fs_sums
-
-
-def calculate_ksum(
-    n,
-    nlayers,
-    npointscalc,
-    base_m,
-    imaginary_identity_m,
-    compute_idxs,
-    D_factors,
-    overall_multiplier_flat,
-    random_sampling_max,
-    p,
-    verbose,
-    normalisation_factor,
-):
-    Fs_ksum = np.zeros(nlayers)
-    w = (2 * n + 1) * np.pi * p.T
-    ws = imaginary_identity_m * w
-    Fupdowns = np.zeros((nlayers, npointscalc))
-    Fdownups = np.zeros((nlayers, npointscalc))
-
-    idx_samps = compute_idxs[:, 0] + np.round(
-        random_sampling_max * np.random.rand(npointscalc)
-    ).astype(int)
-    +p.nkpoints * np.round(random_sampling_max * np.random.rand(npointscalc)).astype(
-        int
-    )
-
-    for i in range(npointscalc):
-        idx_samp = idx_samps[i]
-        m_inv = np.linalg.inv(
-            -base_m[:, :, compute_idxs[i, 0], compute_idxs[i, 1]] + ws
-        )
-        for j in range(nlayers):
-            # Extract Fupdown and Fdownup for each layer
-            # print(m_inv[4 * j, 4 * j + 3], m_inv[4 * j + 1, 4 * j + 2])
-            Fupdowns[j, i] = (
-                m_inv[4 * j, 4 * j + 3]
-                * D_factors[compute_idxs[i, 0], compute_idxs[i, 1], j]
-            )
-            Fdownups[j, i] = (
-                m_inv[4 * j + 1, 4 * j + 2]
-                * D_factors[compute_idxs[i, 0], compute_idxs[i, 1], j]
-            )
-
-    # Calculate the k-space sum over all layers
-    for layer in range(nlayers):
-        Fs_ksum[layer] = normalisation_factor * np.sum(
-            overall_multiplier_flat * (Fupdowns[layer, :] - Fdownups[layer, :])
-        )
-
-        # Store verbose data if required
-        if verbose:
-            F_kresolved = Fupdowns[layer, :] - Fdownups[layer, :]
-            matsubara_freqs_unsrt = (
-                n  # Track the current Matsubara frequency for later sorting
-            )
-    # print(Fs_ksum)
-    return Fs_ksum
