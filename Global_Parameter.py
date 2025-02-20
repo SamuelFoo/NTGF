@@ -2,6 +2,8 @@ from dataclasses import dataclass, field
 
 import numpy as np
 
+from constants import kB
+
 
 @dataclass
 class GlobalParams:
@@ -12,9 +14,6 @@ class GlobalParams:
     well as parameters for controlling the calculation such as function
     tolerances and whether to use symmetries or subsampling.
     """
-
-    # Constants
-    kB: float = 8.617333262145e-5  # Boltzmann constant in eV/K
 
     # Properties
     T: float = 1 * kB  # this is 5 K
