@@ -1,7 +1,7 @@
 import numpy as np
 
-from Delta import GKTH_Delta
 from Global_Parameter import GlobalParams
+from Hamiltonian import GKTH_Delta
 
 
 class Layer:

@@ -2,9 +2,8 @@ from typing import List
 
 import numpy as np
 
-from Delta import GKTH_Delta
 from Global_Parameter import GlobalParams
-from Hamiltonian import GKTH_hamiltonian
+from Hamiltonian import GKTH_Delta, GKTH_hamiltonian
 from k_space_flipping import GKTH_flipflip
 from ksubsample import GKTH_ksubsample
 from Layer import Layer
