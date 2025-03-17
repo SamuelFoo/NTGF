@@ -1,1 +1,15 @@
 - Rerun all after fixing rotate_y and rotate_z
+- Use Simpson's instead of trapz
+- List of functions to check:
+  - Green_Function.py
+    - calculate_ksum (duplicated)
+    - GKTH_find_radial_ks
+    - GKTH_Greens_radial
+    - GKTH_fix_lambda
+  - Hamiltonian.py
+    - GKTH_spectrum_k
+    - GKTH_Delta_k
+    - GKTH_hamiltonian_k
+  - self_consistency_delta.py
+    - GKTH_self_consistency_2S_taketurns
+  - script_ss_bilayer.py
