@@ -585,7 +585,7 @@ def GKTH_fix_lambda(p: GlobalParams, layer: Layer, Delta_target: float):
     Fs_sums, _, _, _ = GKTH_Greens_radial(p, [layer])
 
     # Calculate lambda
-    lambda_val = Delta_target / (p.T * abs(Fs_sums))
+    lambda_val = Delta_target / (p.T * abs(Fs_sums))[0]
 
     # Update layer's lambda value
     layer._lambda = lambda_val

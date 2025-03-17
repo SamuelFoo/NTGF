@@ -128,7 +128,9 @@ def GKTH_self_consistency_2S_taketurns(
 
         Fs_sums, _, _, _ = GKTH_Greens_radial(p, layers, layers_to_check=[0, 1])
         Deltas_iterate = (
-            np.array([layer._lambda for layer in layers]) * p.T * np.abs(Fs_sums)
+            np.array([layer._lambda for layer in layers])
+            * p.T
+            * np.abs(Fs_sums).conj().T
         )
         residual2D = np.real(Deltas_iterate - x)
 
@@ -141,7 +143,7 @@ def GKTH_self_consistency_2S_taketurns(
     itr = 0
 
     # Initialize x with the current Delta_0 values of the specified layers
-    x = np.array([layers[i].Delta_0 for i in layers_to_check])
+    x = np.array([layers[i].Delta_0 for i in layers_to_check], dtype=np.float64)
 
     fx = np.array([1000, 1000])
     xshift = np.array([1000, 1000])
