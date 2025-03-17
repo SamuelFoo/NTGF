@@ -2,3 +2,5 @@ scipy>=1.15 # For root_scalar, see https://github.com/scipy/scipy/issues/21148
 ipykernel
 matplotlib
 PyQt6
+scikit-image
+joblib
