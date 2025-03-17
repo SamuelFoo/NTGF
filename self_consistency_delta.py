@@ -4,7 +4,7 @@ import numpy as np
 from scipy.optimize import root_scalar
 
 from Global_Parameter import GlobalParams
-from Green_Function import GKTH_Greens
+from Green_Function import GKTH_Greens, GKTH_Greens_radial
 from Layer import Layer
 
 
@@ -20,7 +20,7 @@ def GKTH_self_consistency_1S_residual(
     Fs_sums = GKTH_Greens(p, layers)
     idx = layers_to_check[0]
     residual = layers[idx]._lambda * p.T * np.abs(Fs_sums[idx]) - Delta_0_fit
-    print(f"delta_0 residual: {Delta_0_fit:.3e} {residual:.4e}")
+    # print(f"delta_0 residual: {Delta_0_fit:.3e} {residual:.4e}")
     return residual
 
 
@@ -82,3 +82,91 @@ def GKTH_self_consistency_1S_find_root(
     print(f"Solution Delta({p.T}, {p.h}) = {Delta} eV")
 
     return Delta, layers
+
+
+def GKTH_self_consistency_2S_taketurns(
+    p: GlobalParams, layers: List[Layer], layers_to_check: List[int] = [0, 1]
+):
+    """
+    Description:
+    GKTH_self_consistency_2S uses self-consistency to find the Delta values
+    for two different superconductors in a stack. This approach is rougher
+    than for a single superconductor, making it more prone to error, and
+    it will not detect first-order transitions.
+
+    The method applies a numerical Newton-Raphson approach to approximate
+    the self-consistent solution for one superconductor while keeping the
+    other superconductor's gap constant. The process is then repeated
+    for the second superconductor, iterating until convergence within
+    a given tolerance. This approach appears more stable than gradient descent.
+
+    Inputs:
+        p               : Global parameter object defining the stack and
+                          calculation parameters.
+        layers          : A list of Layer objects defining the junction structure.
+        layers_to_check : A list of indices specifying which layers should
+                          have their Delta values calculated.
+
+    Outputs:
+        Delta  : The computed gap values after self-consistency iteration.
+        layers : The updated list of Layer objects with updated Delta values.
+        history: A matrix storing checked Delta values along with the
+                 changes in Delta from the self-consistency calculations.
+                 Useful for analyzing algorithm progress.
+    """
+
+    tol = p.abs_tolerance_self_consistency_1S
+    history = []
+
+    def GKTH_self_consistency_2S_residual2D(x):
+        """
+        Computes the residual between the calculated Delta values and the
+        expected ones based on self-consistency.
+        """
+        for i in layers_to_check:
+            layers[i].Delta_0 = x[i]
+
+        Fs_sums, _, _, _ = GKTH_Greens_radial(p, layers, layers_to_check=[0, 1])
+        Deltas_iterate = (
+            np.array([layer._lambda for layer in layers]) * p.T * np.abs(Fs_sums)
+        )
+        residual2D = np.real(Deltas_iterate - x)
+
+        history.append((x.copy(), residual2D.copy()))
+        return residual2D
+
+    # Newton-Raphson Method
+    minItr = 10
+    maxItr = 100
+    itr = 0
+
+    # Initialize x with the current Delta_0 values of the specified layers
+    x = np.array([layers[i].Delta_0 for i in layers_to_check])
+
+    fx = np.array([1000, 1000])
+    xshift = np.array([1000, 1000])
+    dx = tol / 2
+
+    while (np.linalg.norm(xshift) > tol and itr < maxItr) or itr < minItr:
+        fx = GKTH_self_consistency_2S_residual2D(x)
+
+        if itr % 2 == 0:
+            dfx = GKTH_self_consistency_2S_residual2D(x + np.array([dx, 0]))
+            dfdx = (dfx[0] - fx[0]) / dx
+            x -= np.array([fx[0] / dfdx, 0])
+            xshift[0] = fx[0] / dfdx
+        else:
+            dfx = GKTH_self_consistency_2S_residual2D(x + np.array([0, dx]))
+            dfdx = (dfx[1] - fx[1]) / dx
+            x -= np.array([0, fx[1] / dfdx])
+            xshift[1] = fx[1] / dfdx
+
+        itr += 1
+
+    Delta = x
+
+    # Update the Delta_0 values in the layers being checked
+    for j, layer_index in enumerate(layers_to_check):
+        layers[layer_index].Delta_0 = np.real(Delta[j])
+
+    return Delta, layers, history
