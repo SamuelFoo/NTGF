@@ -9,6 +9,8 @@
 # between parabolic and tight-binding dispersions (there isn't).
 
 import copy
+import pickle
+from pathlib import Path
 
 import numpy as np
 from joblib import Parallel, delayed
@@ -26,29 +28,33 @@ p.nfinal = 250
 p.abs_tolerance_self_consistency_1S = 1e-6
 p.rel_tolerance_Greens = 1e-6
 
+
+def load_or_compute_layer(layer_name, _lambda, Delta_0, Delta_target, symmetry="s"):
+    layer_path = Path(f"data/ss_bilayer/layers/{layer_name}.pkl")
+    if layer_path.exists():
+        return pickle.load(open(layer_path, "rb"))
+    else:
+        layer = Layer(_lambda=_lambda)
+        layer.symmetry = symmetry
+        layer.Delta_0 = Delta_0
+        _, layer = GKTH_fix_lambda(p, layer, Delta_target)
+        pickle.dump(layer, open(layer_path, "wb"))
+        return layer
+
+
 # s-wave high Tc
-S1 = Layer(_lambda=0.0)
-S1.Delta_0 = 0.0016
-_, S1 = GKTH_fix_lambda(p, S1, kB * 1.764 * 10)
+S1 = load_or_compute_layer("S1", 0.0, 0.0016, kB * 1.764 * 10)
 
 # s-wave low Tc
-S2 = Layer(_lambda=0.0)
-S2.Delta_0 = 0.00083
-_, S2 = GKTH_fix_lambda(p, S2, kB * 1.764 * 5)
+S2 = load_or_compute_layer("S2", 0.0, 0.00083, kB * 1.764 * 5)
 
 # d-wave high Tc
-D1 = Layer(_lambda=0.0)
-D1.symmetry = "d"
-D1.Delta_0 = 0.0022
+D1 = load_or_compute_layer("D1", 0.0, 0.0022, kB * 1.764 * 10 * 1.32, symmetry="d")
 # %D1.lambda=GKTH_fix_lambda(p,D1,0.0023512)
-_, D1 = GKTH_fix_lambda(p, D1, kB * 1.764 * 10 * 1.32)
 
 # d-wave low Tc
-D2 = Layer(_lambda=0.0)
-D2.symmetry = "d"
-D2.Delta_0 = 0.0012
+D2 = load_or_compute_layer("D2", 0.0, 0.0012, kB * 1.764 * 5 * 1.32, symmetry="d")
 # %D2.lambda=GKTH_fix_lambda(p,D2,0.0010273);
-_, D2 = GKTH_fix_lambda(p, D1, kB * 1.764 * 5 * 1.32)
 
 # Define variables
 nTs = 50  # Number of temperature points
