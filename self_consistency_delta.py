@@ -1,7 +1,7 @@
 from typing import List
 
 import numpy as np
-from scipy.optimize import root_scalar
+from scipy.optimize import root, root_scalar
 
 from Global_Parameter import GlobalParams
 from Green_Function import GKTH_Greens, GKTH_Greens_radial
@@ -137,35 +137,19 @@ def GKTH_self_consistency_2S_taketurns(
         history.append((x.copy(), residual2D.copy()))
         return residual2D
 
-    # Newton-Raphson Method
-    minItr = 10
-    maxItr = 100
-    itr = 0
-
     # Initialize x with the current Delta_0 values of the specified layers
     x = np.array([layers[i].Delta_0 for i in layers_to_check], dtype=np.float64)
 
-    fx = np.array([1000, 1000])
-    xshift = np.array([1000, 1000])
-    dx = tol / 2
-
-    while (np.linalg.norm(xshift) > tol and itr < maxItr) or itr < minItr:
-        fx = GKTH_self_consistency_2S_residual2D(x)
-
-        if itr % 2 == 0:
-            dfx = GKTH_self_consistency_2S_residual2D(x + np.array([dx, 0]))
-            dfdx = (dfx[0] - fx[0]) / dx
-            x -= np.array([fx[0] / dfdx, 0])
-            xshift[0] = fx[0] / dfdx
-        else:
-            dfx = GKTH_self_consistency_2S_residual2D(x + np.array([0, dx]))
-            dfdx = (dfx[1] - fx[1]) / dx
-            x -= np.array([0, fx[1] / dfdx])
-            xshift[1] = fx[1] / dfdx
-
-        itr += 1
-
-    Delta = x
+    sol = root(
+        GKTH_self_consistency_2S_residual2D,
+        x0=x,
+        tol=tol,
+        method="krylov",
+    )
+    Delta = sol.x
+    if not sol.success:
+        raise RuntimeError("Root-finding did not converge", sol.message)
+    print("Number of function evaluations:", sol.nfev)
 
     # Update the Delta_0 values in the layers being checked
     for j, layer_index in enumerate(layers_to_check):
