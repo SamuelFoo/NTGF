@@ -380,7 +380,11 @@ def GKTH_find_radial_ks(
     avg_spectrum = np.prod(np.abs(eigenvalues), axis=0) ** (1 / (4 * nlayers))
 
     # Compute sampling weights based on Fermi surface proximity
-    weights = np.exp(-np.abs(avg_spectrum) / width) * rs * np.gradient(rs, axis=0)
+    weights = (
+        np.exp(-np.abs(avg_spectrum) / width)
+        * rs
+        * np.gradient(rs.conj().T, axis=1).conj().T
+    )
     constant = np.sum(weights) / p.ntest * base_space
     weights = constant + weights
 
@@ -400,7 +404,11 @@ def GKTH_find_radial_ks(
         )
 
     # Compute area factors
-    area_factor = (2 * np.pi / (p.nradials - 1)) * new_rs * np.gradient(new_rs, axis=0)
+    area_factor = (
+        (2 * np.pi / (p.nradials - 1))
+        * new_rs
+        * np.gradient(new_rs.conj().T, axis=1).conj().T
+    )
 
     # Adjust boundary conditions for area_factor
     area_factor[:, 0] /= 2
@@ -494,7 +502,7 @@ def GKTH_Greens_radial(
         weights = ksums[:itr, layers_to_check[itr % len(layers_to_check)]]
         diffs = np.diff(weights, axis=0)
         if len(diffs) >= 2:
-            ddiffs = np.gradient(diffs, axis=0)
+            ddiffs = np.gradient(diffs)
         else:
             ddiffs = 0
         matsdiffs = np.diff(matsubara_freqs[:itr])

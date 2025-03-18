@@ -30,12 +30,12 @@ p.abs_tolerance_self_consistency_1S = 1e-6
 p.rel_tolerance_Greens = 1e-6
 
 
-def load_or_compute_layer(layer_name, _lambda, Delta_0, Delta_target, symmetry="s"):
+def load_or_compute_layer(layer_name, Delta_0, Delta_target, symmetry="s"):
     layer_path = Path(f"data/ss_bilayer/layers/{layer_name}.pkl")
     if layer_path.exists():
         return pickle.load(open(layer_path, "rb"))
     else:
-        layer = Layer(_lambda=_lambda)
+        layer = Layer(_lambda=0.0)
         layer.symmetry = symmetry
         layer.Delta_0 = Delta_0
         _, layer = GKTH_fix_lambda(p, layer, Delta_target)
@@ -44,17 +44,19 @@ def load_or_compute_layer(layer_name, _lambda, Delta_0, Delta_target, symmetry="
 
 
 # s-wave high Tc
-S1 = load_or_compute_layer("S1", 0.0, 0.0016, kB * 1.764 * 10)
+S1 = load_or_compute_layer("S1", 0.0016, kB * 1.764 * 10)
 
 # s-wave low Tc
-S2 = load_or_compute_layer("S2", 0.0, 0.00083, kB * 1.764 * 5)
+S2 = load_or_compute_layer("S2", 0.00083, kB * 1.764 * 5)
 
 # d-wave high Tc
-D1 = load_or_compute_layer("D1", 0.0, 0.0022, kB * 1.764 * 10 * 1.32, symmetry="d")
+# print(kB * 1.764 * 10 * 1.32)
+D1 = load_or_compute_layer("D1", 0.0022, kB * 1.764 * 10 * 1.32, symmetry="d")
 # %D1.lambda=GKTH_fix_lambda(p,D1,0.0023512)
 
 # d-wave low Tc
-D2 = load_or_compute_layer("D2", 0.0, 0.0012, kB * 1.764 * 5 * 1.32, symmetry="d")
+# print(kB * 1.764 * 5 * 1.32)
+D2 = load_or_compute_layer("D2", 0.0012, kB * 1.764 * 5 * 1.32, symmetry="d")
 # %D2.lambda=GKTH_fix_lambda(p,D2,0.0010273);
 
 # Define variables
@@ -112,10 +114,3 @@ def compute_self_consistency(i):
 results = Parallel(n_jobs=-1)(
     delayed(compute_self_consistency)(i) for i in range(nts * nTs)
 )
-
-# Store results in the Deltas array
-for Ds, i in results:
-    Deltas[:, i] = Ds
-
-# Save the results to a file
-np.savez("data/ss_bilayer/ss_Delta_T_t_tb.npz", Ts=Ts, Deltas=Deltas, ts=ts)
