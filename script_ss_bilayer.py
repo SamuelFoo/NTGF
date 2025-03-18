@@ -104,6 +104,8 @@ def compute_self_consistency(i):
         "INSERT INTO ss_bilayer (temperature, tunneling, Ds_0, Ds_1) VALUES (?, ?, ?, ?)",
         (p1.T, p1.ts[0], Ds[0], Ds[1]),
     )
+    conn.commit()
+    conn.close()
     return Ds, i
 
 
