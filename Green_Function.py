@@ -87,26 +87,20 @@ def calculate_ksum(n, base_m, imaginary_identity_m, D_factors, area_factor, verb
     Returns:
         Fs_ksum: Sum over k-points
     """
-    nlayers, nrs, nangles = D_factors.shape
-    Fs_ksum = np.zeros(nlayers, dtype=complex)
+    _, nrs, nangles = D_factors.shape
     w = (2 * n + 1) * np.pi * 1j
 
     # Invert Hamiltonian at each k-point
-    for i1 in range(nrs):
-        for i2 in range(nangles):
-            m_inv = np.linalg.inv(base_m[:, :, i1, i2] + w * imaginary_identity_m)
-
-            Fupdowns = np.array([m_inv[4 * j, 4 * j + 3] for j in range(nlayers)])
-            Fdownups = np.array([m_inv[4 * j + 1, 4 * j + 2] for j in range(nlayers)])
-
-            # Compute sum over k
-            for i in range(nlayers):
-                Fs_ksum[i] += np.sum(
-                    area_factor[i1, i2]
-                    * D_factors[i, i1, i2]
-                    * (Fupdowns[i] - Fdownups[i])
-                )
-
+    ws = w * imaginary_identity_m
+    ws = np.tile(ws, (nrs, nangles, 1, 1))
+    base_m = np.transpose(base_m, (2, 3, 0, 1))
+    m_inv = np.linalg.inv(base_m + ws)
+    Fupdowns = m_inv[..., ::4, 3::4].diagonal(axis1=2, axis2=3)
+    Fdownups = m_inv[..., 1::4, 2::4].diagonal(axis1=2, axis2=3)
+    D_factors = np.transpose(D_factors, (1, 2, 0))
+    area_factor = area_factor[..., np.newaxis]
+    Fs_ksum = np.sum(area_factor * D_factors * (Fupdowns - Fdownups), axis=(0, 1))
+    Fs_ksum = np.real_if_close(Fs_ksum)
     return Fs_ksum
 
 
