@@ -3,7 +3,6 @@
 - List of functions to check:
   - Green_Function.py
     - calculate_ksum (duplicated)
-    - GKTH_find_radial_ks
     - GKTH_Greens_radial
     - GKTH_fix_lambda
   - Hamiltonian.py

@@ -385,7 +385,7 @@ def GKTH_find_radial_ks(
         * rs
         * np.gradient(rs.conj().T, axis=1).conj().T
     )
-    constant = np.sum(weights) / p.ntest * base_space
+    constant = np.sum(weights, axis=0) / p.ntest * base_space
     weights = constant + weights
 
     # Compute cumulative distribution for interpolation
