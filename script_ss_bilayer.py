@@ -10,6 +10,7 @@
 
 import copy
 import pickle
+import sqlite3
 from pathlib import Path
 
 import numpy as np
@@ -57,9 +58,11 @@ D2 = load_or_compute_layer("D2", 0.0, 0.0012, kB * 1.764 * 5 * 1.32, symmetry="d
 # %D2.lambda=GKTH_fix_lambda(p,D2,0.0010273);
 
 # Define variables
-nTs = 50  # Number of temperature points
-Ts = np.linspace(0.00001, 0.001, nTs)  # Temperature range
-ts = np.array([0, 0.25, 0.5, 1, 2, 5, 10]) * 1e-3  # Tunneling parameters
+nTs = 51  # Number of temperature points
+Ts = np.round(np.linspace(0.0, 0.001, nTs), 9)  # Temperature range
+Ts = Ts[1:]  # Remove T=0
+nTs = len(Ts)
+ts = np.round(np.array([0, 0.25, 0.5, 1, 2, 5, 10]) * 1e-3, 9)  # Tunneling parameters
 nts = len(ts)  # Number of tunneling parameters
 Deltas = np.zeros((2, nts, nTs))  # Initialize array for storing results
 
@@ -73,8 +76,34 @@ def compute_self_consistency(i):
     p1 = copy.deepcopy(p)
     p1.ts = [ts[i1]]
     p1.T = Ts[i2]
+
+    conn = sqlite3.connect("data/ss_bilayer/ss_bilayer.db")
+    c = conn.cursor()
+
+    # Create table if it doesn't exist
+    c.execute(
+        """CREATE TABLE IF NOT EXISTS ss_bilayer
+                (temperature REAL, tunneling REAL, Ds_0 REAL, Ds_1 REAL)"""
+    )
+
+    # If already in database, skip
+    c.execute(
+        "SELECT Ds_0, Ds_1 FROM ss_bilayer WHERE temperature = ? AND tunneling = ?",
+        (p1.T, p1.ts[0]),
+    )
+    row = c.fetchone()
+    if row:
+        return row
+
+    print(f"Starting ss: temperature = {p1.T}, tunneling = {p1.ts}, {i} of {nts * nTs}")
     Ds, _, _ = GKTH_self_consistency_2S_taketurns(p1, [S1, S2])
-    print(f"ss: {i} of {nts * nTs}")
+    print(f"Finished ss: temperature = {p1.T}, tunneling = {p1.ts}, {i} of {nts * nTs}")
+
+    # Save results to sql
+    conn.execute(
+        "INSERT INTO ss_bilayer (temperature, tunneling, Ds_0, Ds_1) VALUES (?, ?, ?, ?)",
+        (p1.T, p1.ts[0], Ds[0], Ds[1]),
+    )
     return Ds, i
 
 
