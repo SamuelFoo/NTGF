@@ -245,7 +245,6 @@ def GKTH_hamiltonian_k(
         else:
             SOC = 0
 
-        print(xis.shape, h_layer.shape, h_global.shape)
         m[idx : idx + 2, idx : idx + 2, :, :] = xis + h_layer + h_global + SOC
         m[idx + 2 : idx + 4, idx + 2 : idx + 4, :, :] = -np.conj(
             xis + h_layer + h_global + SOC
