@@ -1,3 +1,4 @@
+from copy import deepcopy
 from typing import List, Tuple
 
 import numpy as np
@@ -72,7 +73,7 @@ def calculate_ksum(
     return Fs_ksum
 
 
-def calculate_ksum(n, base_m, imaginary_identity_m, D_factors, area_factor, verbose):
+def calculate_ksum(n, base_m, imaginary_identity_m, D_factors, area_factor, p, verbose):
     """
     Computes the sum over k-points for a given Matsubara frequency n.
 
@@ -88,7 +89,7 @@ def calculate_ksum(n, base_m, imaginary_identity_m, D_factors, area_factor, verb
         Fs_ksum: Sum over k-points
     """
     _, nrs, nangles = D_factors.shape
-    w = (2 * n + 1) * np.pi * 1j
+    w = (2 * n + 1) * np.pi * p.T
 
     # Invert Hamiltonian at each k-point
     ws = w * imaginary_identity_m
@@ -462,15 +463,16 @@ def GKTH_Greens_radial(
 
     # Generate k-space grid
     k1s, k2s, _, _, area_factor = GKTH_find_radial_ks(
-        p, layers, width=0.05, just_use_layer=layers_to_check
+        p, deepcopy(layers), width=0.05, just_use_layer=layers_to_check
     )
     nrs, nangles = k1s.shape
 
     # Initialize Delta factors
     D_factors = np.zeros((nlayers, nrs, nangles))
     for i, L in enumerate(layers):
-        L.Delta_0 = 1
-        D_factors[i, :, :] = GKTH_Delta_k(p, L, k1s, k2s)
+        L_copy = deepcopy(L)
+        L_copy.Delta_0 = 1
+        D_factors[i, :, :] = GKTH_Delta_k(p, L_copy, k1s, k2s)
 
     D_factors[np.isinf(D_factors) | np.isnan(D_factors)] = 0
 
@@ -491,6 +493,7 @@ def GKTH_Greens_radial(
             imaginary_identity_m,
             D_factors,
             area_factor,
+            p,
             verbose,
         )
 
@@ -514,7 +517,7 @@ def GKTH_Greens_radial(
         # Insert new frequency
         matsubara_freqs = np.insert(matsubara_freqs, mats_idx + 1, new_n)
         new_ksum = calculate_ksum(
-            new_n, base_m, imaginary_identity_m, D_factors, area_factor, verbose
+            new_n, base_m, imaginary_identity_m, D_factors, area_factor, p, verbose
         )
         ksums = np.insert(ksums, mats_idx + 1, new_ksum, axis=0)
 
