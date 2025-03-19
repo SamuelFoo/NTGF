@@ -12,3 +12,4 @@
   - self_consistency_delta.py
     - GKTH_self_consistency_2S_taketurns
   - script_ss_bilayer.py
+- Make GlobalParams and Layer immutable
