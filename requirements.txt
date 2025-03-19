@@ -4,3 +4,4 @@ matplotlib
 PyQt6
 scikit-image
 joblib
+pandas
