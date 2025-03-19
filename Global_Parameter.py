@@ -25,8 +25,9 @@ class GlobalParams:
     ts: np.ndarray = field(default_factory=lambda: np.zeros(100) + 0.5)
     cyclic_tunnelling: bool = False  # Whether the last layer tunnels to the first layer
 
-    a: float = 3.30e-10  # lattice parameter
-
+    a: float = 3.905e-10  # lattice parameter
+    # 1D values
+    # a: float = 3.30e-10  # lattice parameter
     interface_normal: int = 3  # direction of broken inversion symmetry. x=1,y=2,z=3
 
     # How big to make the area in k-space. 1 goes to 1st Brillouin
@@ -36,7 +37,9 @@ class GlobalParams:
 
     # Number of kpoints: must be multiple of 8 for meshing to work with mm symmetry
     # Minimum 80 for testing, 160 or greater for real use
-    nkpoints: int = 300
+    nkpoints: int = 160
+    # 1D values
+    # nkpoints: int = 300
     m_symmetry_line: float = 0
     lattice_symmetry: str = "4mm"
     use_kspace_subsampling: bool = True
