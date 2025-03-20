@@ -73,7 +73,7 @@ def calculate_ksum(
     return Fs_ksum
 
 
-def calculate_ksum(n, base_m, imaginary_identity_m, D_factors, area_factor, p, verbose):
+def calculate_ksum(n, base_m, imaginary_identity_m, D_factors, area_factor, p):
     """
     Computes the sum over k-points for a given Matsubara frequency n.
 
@@ -429,7 +429,6 @@ def GKTH_Greens_radial(
     layers: List[Layer],
     maxCalcs=500,
     layers_to_check=[0],
-    verbose=False,
     opts=None,
 ):
     """
@@ -454,7 +453,7 @@ def GKTH_Greens_radial(
     # Set default options
     if opts is None:
         opts = {
-            "maxMatsubara": int(1e6 + 1e4 / p.T),
+            "maxMatsubara": 1e6 + 1e4 / p.T,
         }
 
     maxMatsubara = opts["maxMatsubara"]
@@ -494,42 +493,60 @@ def GKTH_Greens_radial(
             D_factors,
             area_factor,
             p,
-            verbose,
         )
 
     # Iterative sampling
     prev_tol_check = 0
     stopped_changing = 0
+    diffs = np.zeros(maxCalcs - 1)
+    ddiffs = np.zeros(maxCalcs - 1)
+    weights = np.zeros(maxCalcs)
+    matsdiffs = np.zeros(maxCalcs - 1)
+    weights[:2] = np.sum(np.abs(ksums[:2, :]), axis=1)
     for itr in range(2, maxCalcs):
         # Compute differentials
-        weights = ksums[:itr, layers_to_check[itr % len(layers_to_check)]]
-        diffs = np.diff(weights, axis=0)
-        if len(diffs) >= 2:
-            ddiffs = np.gradient(diffs)
+        layer = layers_to_check[itr % len(layers_to_check)]
+        weights[:itr] = ksums[:itr, layer]
+        diffs[: itr - 1] = np.diff(weights[:itr], axis=0)
+        if len(diffs[: itr - 1]) >= 2:
+            ddiffs[: itr - 1] = np.gradient(diffs[: itr - 1])
         else:
-            ddiffs = 0
-        matsdiffs = np.diff(matsubara_freqs[:itr])
+            ddiffs[: itr - 1] = 0
 
-        checks = matsdiffs > 1
-        mats_idx = np.argmax(np.abs(checks * ddiffs * matsdiffs))
+        matsdiffs[: itr - 1] = np.diff(matsubara_freqs[:itr])
+
+        checks = matsdiffs[: itr - 1] > 1
+        mats_idx = np.argmax(np.abs(checks * ddiffs[: itr - 1] * matsdiffs[: itr - 1]))
         new_n = (matsubara_freqs[mats_idx] + matsubara_freqs[mats_idx + 1]) // 2
 
         # Insert new frequency
-        matsubara_freqs = np.insert(matsubara_freqs, mats_idx + 1, new_n)
-        new_ksum = calculate_ksum(
-            new_n, base_m, imaginary_identity_m, D_factors, area_factor, p, verbose
+        matsubara_freqs[: itr + 1] = np.concatenate(
+            [
+                matsubara_freqs[: mats_idx + 1],
+                [new_n],
+                matsubara_freqs[mats_idx + 1 : itr],
+            ]
         )
-        ksums = np.insert(ksums, mats_idx + 1, new_ksum, axis=0)
+        new_ksum = calculate_ksum(
+            new_n, base_m, imaginary_identity_m, D_factors, area_factor, p
+        )
+        ksums[: itr + 1, :] = np.concatenate(
+            [
+                ksums[: mats_idx + 1, :],
+                [new_ksum],
+                ksums[mats_idx + 1 : itr, :],
+            ]
+        )
 
         # Convergence check
-        if itr % 10 == 0:
+        if (itr + 1) % 10 == 0:
             tol_check = []
-            for i in range(nlayers):
-                tol_check = trapezoid(
-                    matsubara_freqs[:itr].reshape(-1, 1).repeat(nlayers, axis=1),
-                    (np.abs(ksums[:itr, :]) + 0.5 * np.abs(ksums[0, :])),
-                    axis=0,
-                )
+
+            tol_check = trapezoid(
+                np.abs(ksums[: itr + 1, :]) + 0.5 * np.abs(ksums[0, :]),
+                matsubara_freqs[: itr + 1].reshape(-1, 1).repeat(nlayers, axis=1),
+                axis=0,
+            )
             tol_check = tol_check[layers_to_check]
             if (
                 np.linalg.norm((tol_check - prev_tol_check) / prev_tol_check)
@@ -543,23 +560,14 @@ def GKTH_Greens_radial(
             prev_tol_check = tol_check
 
     # Final integration
-    Fs_sums = np.array(
-        [
-            trapezoid(matsubara_freqs[:itr], ksums[:itr, i]) + 0.5 * ksums[0, i]
-            for i in range(nlayers)
-        ]
+    Fs_sums = (
+        trapezoid(
+            ksums[:itr, :],
+            matsubara_freqs[:itr].reshape(-1, 1).repeat(nlayers, axis=1),
+            axis=0,
+        )
+        + 0.5 * ksums[0, i]
     )
-
-    # If verbose, return k-resolved function
-    if verbose:
-        F_kresolved_matsum = np.zeros((nlayers, nrs, nangles))
-        for j in range(nlayers):
-            for i1 in range(nrs):
-                for i2 in range(nangles):
-                    F_kresolved_matsum[j, i1, i2] = trapezoid(
-                        matsubara_freqs[:itr], ksums[:itr, j]
-                    )
-        return Fs_sums, F_kresolved_matsum, k1s, k2s
 
     return Fs_sums, None, k1s, k2s
 
