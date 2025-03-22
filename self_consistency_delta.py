@@ -141,8 +141,8 @@ def GKTH_self_consistency_2S_taketurns(
     sol = root(
         GKTH_self_consistency_2S_residual2D,
         x0=x,
-        tol=tol,
         method="krylov",
+        options={"xatol": tol, "maxiter": 100},
     )
     Delta = sol.x
     if not sol.success:
