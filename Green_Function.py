@@ -566,7 +566,7 @@ def GKTH_Greens_radial(
             matsubara_freqs[:itr].reshape(-1, 1).repeat(nlayers, axis=1),
             axis=0,
         )
-        + 0.5 * ksums[0, i]
+        + 0.5 * ksums[0, :]
     )
 
     return Fs_sums, None, k1s, k2s
