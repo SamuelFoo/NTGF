@@ -12,6 +12,7 @@ import copy
 import pickle
 import sqlite3
 from pathlib import Path
+from typing import List
 
 import numpy as np
 from joblib import Parallel, delayed
@@ -73,13 +74,13 @@ p.nradials = 120
 p.lattice_symmetry = "mm"
 
 
-def compute_self_consistency(i):
+def compute_self_consistency(db_path: Path, layers: List[Layer], i: int):
     i1, i2 = np.unravel_index(i, (nts, nTs))
     p1 = copy.deepcopy(p)
     p1.ts = [ts[i1]]
     p1.T = Ts[i2]
 
-    conn = sqlite3.connect("data/ss_bilayer/ss_bilayer.db")
+    conn = sqlite3.connect(db_path)
     c = conn.cursor()
 
     # Create table if it doesn't exist
@@ -98,7 +99,7 @@ def compute_self_consistency(i):
         return row
 
     print(f"Starting ss: temperature = {p1.T}, tunneling = {p1.ts}, {i} of {nts * nTs}")
-    Ds, _, _ = GKTH_self_consistency_2S_taketurns(p1, [S1, S2])
+    Ds, _, _ = GKTH_self_consistency_2S_taketurns(p1, layers)
     print(f"Finished ss: temperature = {p1.T}, tunneling = {p1.ts}, {i} of {nts * nTs}")
 
     # Save results to sql
@@ -111,6 +112,14 @@ def compute_self_consistency(i):
     return Ds, i
 
 
-results = Parallel(n_jobs=-1)(
-    delayed(compute_self_consistency)(i) for i in range(nts * nTs)
+# S-S
+# ss_fn = lambda i: compute_self_consistency(
+#     Path("data/ss_bilayer/ss_bilayer.db"), [S1, S2], i
+# )
+# results = Parallel(n_jobs=-1)(delayed(ss_fn)(i) for i in range(nts * nTs))
+
+# D-D
+dd_fn = lambda i: compute_self_consistency(
+    Path("data/ss_bilayer/dd_bilayer.db"), [D1, D2], i
 )
+results = Parallel(n_jobs=-1)(delayed(dd_fn)(i) for i in range(nts * nTs))
