@@ -38,15 +38,14 @@ class Layer:
     # define its electronic spectrum, gap, and its contribution to the
     # overall Hamiltonian.
 
-    def __init__(self, _lambda, n=None):
+    def __init__(self, _lambda, symmetry="s", n=None):
         # Superconductivity
         self.Delta_0 = 0.0  # Delta_0
         # 1D values
         # self.Delta_0 = 0.01  # Delta_0
 
-        self.symmetry = (
-            "s"  # Symmetry of the superconductor: s=swave d=dwave or n=normal
-        )
+        # Symmetry of the superconductor: s=swave d=dwave or n=normal
+        self.symmetry = symmetry
         self._lambda = _lambda  # Superconducting coupling strength
         self.phi = 0  # Superconducting phase
 
