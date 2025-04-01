@@ -61,9 +61,9 @@ def GKTH_Greens_current_radial(p: GlobalParams, layers: List[Layer], **kwargs):
         # Go through each k1,k2 point, invert the Hamiltonian to find Fupdown and Fdownup
         for i1 in range(nrs):
             for i2 in range(nangles):
-                E_matrices_kresolved[i1, i2, :, :] = inv(
+                E_matrices_kresolved[i1, i2, :, :] = np.linalg.inv(
                     base_m[:, :, i1, i2] + ws
-                ) + inv(base_m[:, :, i1, i2] - ws)
+                ) + np.linalg.inv(base_m[:, :, i1, i2] - ws)
 
         # Finding the new E matrix
         E_matrices = np.zeros((2, 2, ninterfaces), dtype=complex)
@@ -86,31 +86,6 @@ def GKTH_Greens_current_radial(p: GlobalParams, layers: List[Layer], **kwargs):
             j_txyz[4 * i + 1] = np.imag(np.trace(px @ E_matrices[:, :, i]))
             j_txyz[4 * i + 2] = np.imag(np.trace(py @ E_matrices[:, :, i]))
             j_txyz[4 * i + 3] = np.imag(np.trace(pz @ E_matrices[:, :, i]))
-
-        if verbose:
-            nonlocal itr
-            matsubara_freqs_unsrt[itr] = n
-            for i1 in range(nrs):
-                for i2 in range(nangles):
-                    for i in range(ninterfaces):
-                        for j in range(2):
-                            for k in range(2):
-                                E_matrices[j, k, i] = E_matrices_kresolved[
-                                    i1, i2, Expos[i] - 1 + j, Eypos[i] - 1 + k
-                                ]
-
-                        E_kresolved[0, itr, i, i1, i2] = np.imag(
-                            np.trace(E_matrices[:, :, i])
-                        )
-                        E_kresolved[1, itr, i, i1, i2] = np.imag(
-                            np.trace(px @ E_matrices[:, :, i])
-                        )
-                        E_kresolved[2, itr, i, i1, i2] = np.imag(
-                            np.trace(py @ E_matrices[:, :, i])
-                        )
-                        E_kresolved[3, itr, i, i1, i2] = np.imag(
-                            np.trace(pz @ E_matrices[:, :, i])
-                        )
 
         return j_txyz
 
@@ -178,13 +153,6 @@ def GKTH_Greens_current_radial(p: GlobalParams, layers: List[Layer], **kwargs):
     diffs = np.zeros(maxCalcs - 1)
     ddiffs = np.zeros(maxCalcs - 1)
     matsdiffs = np.zeros(maxCalcs - 1)
-    values = np.zeros((maxCalcs, 2))
-    integrals = np.zeros(maxCalcs - L)
-
-    # For verbose only
-    matsubara_freqs_unsrt = np.zeros(maxCalcs)
-    E_kresolved = np.zeros((4, maxCalcs, ninterfaces, nrs, nangles))
-    E_kresolved_matsum = np.zeros((4, ninterfaces, nrs, nangles))
 
     # Calculate ksums for first frequencies
     matsubara_freqs[:L] = first_freqs
