@@ -50,43 +50,35 @@ def GKTH_Greens_current_radial(p: GlobalParams, layers: List[Layer], **kwargs):
         Angular points
     """
 
-    # Define the nested function for calculating ksum
-    def calculate_ksum(n):
+    def calculate_ksum(n, base_m):
+        # Matrix for adding frequency dependence
+        imaginary_identity_m = 1j * np.eye(4 * nlayers, 4 * nlayers)
+
         # Calculate the Matsubara frequency value
         w = (2 * n + 1) * np.pi * p.T
         ws = imaginary_identity_m * w
-        E_matrices_kresolved = np.zeros(
-            (nrs, nangles, 4 * nlayers, 4 * nlayers), dtype=complex
-        )
 
         # Go through each k1,k2 point, invert the Hamiltonian to find Fupdown and Fdownup
-        for i1 in range(nrs):
-            for i2 in range(nangles):
-                E_matrices_kresolved[i1, i2, :, :] = np.linalg.inv(
-                    base_m[:, :, i1, i2] + ws
-                ) + np.linalg.inv(base_m[:, :, i1, i2] - ws)
+        ws = np.tile(ws, (nrs, nangles, 1, 1))
+        base_m = np.transpose(base_m, (2, 3, 0, 1))
+        E_matrices_kresolved = np.linalg.inv(base_m + ws) + np.linalg.inv(base_m - ws)
 
         # Finding the new E matrix
         E_matrices = np.zeros((2, 2, ninterfaces), dtype=complex)
-        j_txyz = np.zeros(ninterfaces * 4)
 
         for i in range(ninterfaces):
-            for j in range(2):
-                for k in range(2):
-                    E_matrices[j, k, i] = (
-                        np.sum(
-                            E_matrices_kresolved[
-                                :, :, Expos[i] - 1 + j, Eypos[i] - 1 + k
-                            ]
-                            * area_factor
-                        )
-                        * normalisation_factors[i]
-                    )
+            x_idx = np.mod([Expos[i], Expos[i] + 1], E_matrices_kresolved.shape[2])
+            y_idx = np.mod([Eypos[i], Eypos[i] + 1], E_matrices_kresolved.shape[3])
+            patch = E_matrices_kresolved[:, :, x_idx[:, None], y_idx]
+            E_matrices[:, :, i] = (
+                np.einsum("abjk,ab->jk", patch, area_factor) * normalisation_factors[i]
+            )
 
-            j_txyz[4 * i] = np.imag(np.trace(E_matrices[:, :, i]))
-            j_txyz[4 * i + 1] = np.imag(np.trace(px @ E_matrices[:, :, i]))
-            j_txyz[4 * i + 2] = np.imag(np.trace(py @ E_matrices[:, :, i]))
-            j_txyz[4 * i + 3] = np.imag(np.trace(pz @ E_matrices[:, :, i]))
+        j_txyz = np.zeros(ninterfaces * 4)
+        j_txyz[::4] = np.imag(np.trace(E_matrices, axis1=0, axis2=1))
+        j_txyz[1::4] = np.imag(np.trace(px @ E_matrices, axis1=0, axis2=1))
+        j_txyz[2::4] = np.imag(np.trace(py @ E_matrices, axis1=0, axis2=1))
+        j_txyz[3::4] = np.imag(np.trace(pz @ E_matrices, axis1=0, axis2=1))
 
         return j_txyz
 
@@ -125,9 +117,6 @@ def GKTH_Greens_current_radial(p: GlobalParams, layers: List[Layer], **kwargs):
     # Building the base matrices with no matsubara frequency dependence
     base_m = GKTH_hamiltonian_k(p, k1s, k2s, layers)
 
-    # Matrix for adding frequency dependence
-    imaginary_identity_m = 1j * np.eye(4 * nlayers, 4 * nlayers)
-
     # Pauli matrices
     px = np.array([[0, 1], [1, 0]])
     py = np.array([[0, -1j], [1j, 0]])
@@ -161,7 +150,7 @@ def GKTH_Greens_current_radial(p: GlobalParams, layers: List[Layer], **kwargs):
     # Calculate ksums for first frequencies
     matsubara_freqs[:L] = first_freqs
     for itr in range(L):
-        ksums[itr, :] = calculate_ksum(matsubara_freqs[itr])
+        ksums[itr, :] = calculate_ksum(matsubara_freqs[itr], base_m)
         weights[itr] = np.linalg.norm(ksums[itr, :] * j_to_include)
 
     # Iterate, dynamically sample new points based on weighting
@@ -197,7 +186,7 @@ def GKTH_Greens_current_radial(p: GlobalParams, layers: List[Layer], **kwargs):
         )
 
         # Calculate the sum over k for the new frequency
-        new_ksum = calculate_ksum(new_n)
+        new_ksum = calculate_ksum(new_n, base_m)
 
         # Stick this into ksum array
         ksums = np.concatenate(
