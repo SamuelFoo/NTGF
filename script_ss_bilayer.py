@@ -71,12 +71,14 @@ Deltas = np.zeros((2, nts, nTs))  # Initialize array for storing results
 
 # s-wave tight-binding dispersion
 p.nradials = 120
-p.lattice_symmetry = "mm"
 
 
-def compute_self_consistency(db_path: Path, layers: List[Layer], i: int):
+def compute_self_consistency(
+    db_path: Path, layers: List[Layer], i: int, lattice_symmetry: str
+):
     i1, i2 = np.unravel_index(i, (nts, nTs))
     p1 = copy.deepcopy(p)
+    p1.lattice_symmetry = lattice_symmetry
     p1.ts = [ts[i1]]
     p1.T = Ts[i2]
 
@@ -114,12 +116,24 @@ def compute_self_consistency(db_path: Path, layers: List[Layer], i: int):
 
 # S-S
 # ss_fn = lambda i: compute_self_consistency(
-#     Path("data/ss_bilayer/ss_bilayer.db"), [S1, S2], i
+#     Path("data/ss_bilayer/ss_bilayer.db"), [S1, S2], i, "mm"
 # )
 # results = Parallel(n_jobs=-1)(delayed(ss_fn)(i) for i in range(nts * nTs))
 
 # D-D
-dd_fn = lambda i: compute_self_consistency(
-    Path("data/ss_bilayer/dd_bilayer.db"), [D1, D2], i
+# dd_fn = lambda i: compute_self_consistency(
+#     Path("data/ss_bilayer/dd_bilayer.db"), [D1, D2], i, "4mm"
+# )
+# results = Parallel(n_jobs=-1)(delayed(dd_fn)(i) for i in range(nts * nTs))
+
+# Big D-Small S
+# ds_fn = lambda i: compute_self_consistency(
+#     Path("data/ss_bilayer/ds_bilayer.db"), [D1, S2], i, "mm"
+# )
+# results = Parallel(n_jobs=-1)(delayed(ds_fn)(i) for i in range(nts * nTs))
+
+# Big S-Small D
+sd_fn = lambda i: compute_self_consistency(
+    Path("data/ss_bilayer/sd_bilayer.db"), [S1, D2], i, "mm"
 )
-results = Parallel(n_jobs=-1)(delayed(dd_fn)(i) for i in range(nts * nTs))
+results = Parallel(n_jobs=-1)(delayed(sd_fn)(i) for i in range(nts * nTs))
