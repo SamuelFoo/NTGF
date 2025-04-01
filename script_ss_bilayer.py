@@ -79,7 +79,7 @@ def compute_self_consistency(
     i1, i2 = np.unravel_index(i, (nts, nTs))
     p1 = copy.deepcopy(p)
     p1.lattice_symmetry = lattice_symmetry
-    p1.ts = [ts[i1]]
+    p1.ts = np.array([ts[i1]])
     p1.T = Ts[i2]
 
     conn = sqlite3.connect(db_path)
