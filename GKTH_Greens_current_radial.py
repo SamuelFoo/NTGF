@@ -1,3 +1,4 @@
+from copy import deepcopy
 from typing import List
 
 import numpy as np
@@ -107,7 +108,10 @@ def GKTH_Greens_current_radial(p: GlobalParams, layers: List[Layer], **kwargs):
 
     # Get the k-points (assuming this function has been converted)
     k1s, k2s, new_rs, radial_angles, area_factor = GKTH_find_radial_ks(
-        p, layers, width=abs(p.ts[0]) ** 0.5, just_use_layer=layers_to_check
+        deepcopy(p),
+        deepcopy(layers),
+        width=abs(p.ts[0]) ** 0.5,
+        just_use_layer=layers_to_check,
     )
 
     nrs, nangles = k1s.shape
@@ -167,19 +171,19 @@ def GKTH_Greens_current_radial(p: GlobalParams, layers: List[Layer], **kwargs):
     for itr in range(L, maxCalcs):
         # Calculate all the differentials
         diffs[: itr - 1] = np.diff(weights[:itr])
-        ddiffs[: itr - 1] = np.gradient(diffs[: itr - 1])
+
+        if len(diffs[: itr - 1]) >= 2:
+            ddiffs[: itr - 1] = np.gradient(diffs[: itr - 1])
+        else:
+            ddiffs[: itr - 1] = 0
+
         matsdiffs[: itr - 1] = np.diff(matsubara_freqs[:itr])
 
         # Don't try to sample between points already next to each other
         checks = matsdiffs[: itr - 1] > 1
 
         # Find the new index from the max of the weighting
-        weighted_diffs = np.abs(checks * ddiffs[: itr - 1] * matsdiffs[: itr - 1])
-        if np.any(weighted_diffs):  # Check if any non-zero values
-            mats_idx = np.argmax(weighted_diffs)
-        else:
-            # Handle case where all values are zero
-            break
+        mats_idx = np.argmax(np.abs(checks * ddiffs[: itr - 1] * matsdiffs[: itr - 1]))
 
         new_n = int((matsubara_freqs[mats_idx] + matsubara_freqs[mats_idx + 1]) // 2)
 
@@ -209,9 +213,9 @@ def GKTH_Greens_current_radial(p: GlobalParams, layers: List[Layer], **kwargs):
         )
 
         # Every 10 iterations check for convergence
-        if itr % 10 == 0:
+        if (itr + 1) % 10 == 0:
             tol_check = (
-                np.trapz(matsubara_freqs[: itr + 1], weights[: itr + 1])
+                trapezoid(weights[: itr + 1], matsubara_freqs[: itr + 1])
                 + 0.5 * weights[0]
             )
             if (

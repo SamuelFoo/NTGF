@@ -46,7 +46,7 @@ def GKTH_critical_current(p: GlobalParams, layers: List[Layer], **kwargs):
 
     # If no layer to vary set, make it the last layer
     if np.isnan(layer_to_vary):
-        layer_to_vary = len(layers) - 1  # Python uses 0-based indexing
+        layer_to_vary = len(layers) - 1
 
     # The function to minimize to get jc. Returns -jc so a minimizer
     # can be used to find the maximum jc
@@ -57,10 +57,13 @@ def GKTH_critical_current(p: GlobalParams, layers: List[Layer], **kwargs):
         js = np.zeros(len(xs))
         for i in range(len(xs)):
             x = xs[i]
-            layers_temp = layers.copy()  # Create a copy of the layers
+            layers_temp = layers.copy()
             layers_temp[layer_to_vary].phi = x
-            j_t = GKTH_Greens_current_radial(p, layers_temp, maxCalcs=maxCalcs)
-            js[i] = -j_t[0]
+            j_t, _, _, _, _, _ = GKTH_Greens_current_radial(
+                p, layers_temp, maxCalcs=maxCalcs
+            )
+            print("j_t", j_t)
+            js[i] = -j_t[0, 0]
         elapsed_time = time.time() - start_time
         print(f"Elapsed time: {elapsed_time:.2f} seconds")
         return js[0] if len(js) == 1 else js

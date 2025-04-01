@@ -74,8 +74,6 @@ def sample_matsubara_frequencies(
 
         # Convergence check
         if (itr + 1) % 10 == 0:
-            tol_check = []
-
             tol_check = trapezoid(
                 np.abs(ksums[: itr + 1, :]) + 0.5 * np.abs(ksums[0, :]),
                 matsubara_freqs[: itr + 1].reshape(-1, 1).repeat(nlayers, axis=1),
