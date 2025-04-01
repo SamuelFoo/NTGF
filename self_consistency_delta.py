@@ -1,3 +1,4 @@
+from copy import deepcopy
 from typing import List
 
 import numpy as np
@@ -126,7 +127,9 @@ def GKTH_self_consistency_2S_taketurns(
         for i in layers_to_check:
             layers[i].Delta_0 = x[i]
 
-        Fs_sums, _, _, _ = GKTH_Greens_radial(p, layers, layers_to_check=[0, 1])
+        Fs_sums, _, _, _ = GKTH_Greens_radial(
+            deepcopy(p), deepcopy(layers), layers_to_check=[0, 1]
+        )
         Deltas_iterate = (
             np.array([layer._lambda for layer in layers])
             * p.T

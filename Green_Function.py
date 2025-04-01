@@ -544,7 +544,7 @@ def GKTH_Greens_radial(
 
     # Generate k-space grid
     k1s, k2s, _, _, area_factor = GKTH_find_radial_ks(
-        p, deepcopy(layers), width=0.05, just_use_layer=layers_to_check
+        deepcopy(p), deepcopy(layers), width=0.05, just_use_layer=layers_to_check
     )
     nrs, nangles = k1s.shape
 
@@ -558,7 +558,7 @@ def GKTH_Greens_radial(
     D_factors[np.isinf(D_factors) | np.isnan(D_factors)] = 0
 
     # Build the base Hamiltonian
-    base_m = GKTH_hamiltonian_k(p, k1s, k2s, layers)
+    base_m = GKTH_hamiltonian_k(deepcopy(p), k1s, k2s, deepcopy(layers))
 
     # Matsubara calculations
     imaginary_identity_m = 1j * np.eye(4 * nlayers, 4 * nlayers)

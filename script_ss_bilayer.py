@@ -8,9 +8,9 @@
 # Additionally, the script checks whether there is a difference
 # between parabolic and tight-binding dispersions (there isn't).
 
-import copy
 import pickle
 import sqlite3
+from copy import deepcopy
 from pathlib import Path
 from typing import List
 
@@ -77,7 +77,7 @@ def compute_self_consistency(
     db_path: Path, layers: List[Layer], i: int, lattice_symmetry: str
 ):
     i1, i2 = np.unravel_index(i, (nts, nTs))
-    p1 = copy.deepcopy(p)
+    p1 = deepcopy(p)
     p1.lattice_symmetry = lattice_symmetry
     p1.ts = np.array([ts[i1]])
     p1.T = Ts[i2]
