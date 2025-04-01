@@ -31,7 +31,9 @@ p.abs_tolerance_self_consistency_1S = 1e-6
 p.rel_tolerance_Greens = 1e-6
 
 
-def load_or_compute_layer(layer_name, Delta_0, Delta_target, symmetry="s"):
+def load_or_compute_layer(
+    layer_name: str, Delta_0: float, Delta_target: float, symmetry="s"
+):
     layer_path = Path(f"data/ss_bilayer/layers/{layer_name}.pkl")
     if layer_path.exists():
         return pickle.load(open(layer_path, "rb"))
@@ -39,7 +41,7 @@ def load_or_compute_layer(layer_name, Delta_0, Delta_target, symmetry="s"):
         layer = Layer(_lambda=0.0)
         layer.symmetry = symmetry
         layer.Delta_0 = Delta_0
-        _, layer = GKTH_fix_lambda(p, layer, Delta_target)
+        _, layer = GKTH_fix_lambda(deepcopy(p), deepcopy(layer), Delta_target)
         pickle.dump(layer, open(layer_path, "wb"))
         return layer
 
