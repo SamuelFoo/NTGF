@@ -1,7 +1,7 @@
 from typing import List
 
 import numpy as np
-from scipy.linalg import inv
+from scipy.integrate import trapezoid
 
 from Global_Parameter import GlobalParams
 from Green_Function import GKTH_find_radial_ks, GKTH_hamiltonian_k
@@ -30,8 +30,6 @@ def GKTH_Greens_current_radial(p: GlobalParams, layers: List[Layer], **kwargs):
         Maximum number of calculations (default: 500)
     maxMatsubara : float
         Maximum Matsubara frequency (default: 1e7)
-    verbose : bool
-        Whether to output detailed information (default: False)
     layers_to_check : list
         Which layers to check (default: [0, 2])
 
@@ -121,10 +119,7 @@ def GKTH_Greens_current_radial(p: GlobalParams, layers: List[Layer], **kwargs):
     minCalcs = kwargs.get("minCalcs", 50)
     maxCalcs = kwargs.get("maxCalcs", 500)
     maxMatsubara = kwargs.get("maxMatsubara", 1e7)
-    verbose = kwargs.get("verbose", False)
-    layers_to_check = kwargs.get(
-        "layers_to_check", [0, 2]
-    )  # Convert to 0-based indexing from MATLAB's [1, 3]
+    layers_to_check = kwargs.get("layers_to_check", [0, 2])
 
     # Override maxMatsubara as per original code
     maxMatsubara = 1e6 + 1e4 / p.T
@@ -248,14 +243,6 @@ def GKTH_Greens_current_radial(p: GlobalParams, layers: List[Layer], **kwargs):
             ]
         )
 
-        # If verbose, track the integral every step
-        if verbose:
-            integrals[itr - L] = (
-                np.trapz(matsubara_freqs[: itr + 1], weights[: itr + 1])
-                + 0.5 * weights[0]
-            )
-            values[itr, :] = [new_n, np.linalg.norm(new_ksum * j_to_include)]
-
         # Every 10 iterations check for convergence
         if itr % 10 == 0 and itr > minCalcs:
             tol_check = (
@@ -280,24 +267,8 @@ def GKTH_Greens_current_radial(p: GlobalParams, layers: List[Layer], **kwargs):
         for component in range(4):
             idx = 4 * interface + component
             js[interface, component] = (
-                np.trapz(matsubara_freqs[: itr + 1], ksums[: itr + 1, idx])
+                trapezoid(ksums[: itr + 1, idx], matsubara_freqs[: itr + 1])
                 + 0.5 * ksums[0, idx]
             )
 
-    if verbose:
-        sorted_idx = np.argsort(matsubara_freqs_unsrt[: itr + 1])
-        E_kresolved = E_kresolved[:, sorted_idx, :, :, :]
-
-        for k in range(4):
-            for j in range(ninterfaces):
-                for i1 in range(nrs):
-                    for i2 in range(nangles):
-                        E_kresolved_matsum[k, j, i1, i2] = (
-                            np.trapz(
-                                matsubara_freqs[: itr + 1],
-                                E_kresolved[k, : itr + 1, j, i1, i2],
-                            )
-                            + 0.5 * E_kresolved[k, 0, j, i1, i2]
-                        )
-
-    return js, E_kresolved_matsum, k1s, k2s, new_rs, radial_angles
+    return js, None, k1s, k2s, new_rs, radial_angles
