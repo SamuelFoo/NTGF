@@ -13,6 +13,89 @@ from ksubsample import GKTH_ksubsample
 from Layer import GKTH_Delta, Layer
 
 
+def sample_matsubara_frequencies(
+    maxMatsubara: float,
+    maxCalcs: int,
+    nlayers: int,
+    calculate_ksum: callable,
+    layers_to_check: List[int],
+    rel_tolerance_greens: float,
+):
+    first_freqs = np.array([0, maxMatsubara])
+    matsubara_freqs = np.zeros(maxCalcs)
+    ksums = np.zeros((maxCalcs, nlayers))
+    matsubara_freqs[:2] = first_freqs
+
+    for itr in range(2):
+        ksums[itr, :] = calculate_ksum(matsubara_freqs[itr])
+
+    # Iterative sampling
+    prev_tol_check = 0
+    stopped_changing = 0
+    diffs = np.zeros(maxCalcs - 1)
+    ddiffs = np.zeros(maxCalcs - 1)
+    weights = np.zeros(maxCalcs)
+    matsdiffs = np.zeros(maxCalcs - 1)
+    weights[:2] = np.sum(np.abs(ksums[:2, :]), axis=1)
+    for itr in range(2, maxCalcs):
+        print(f"Iteration {itr} of {maxCalcs}")
+
+        # Compute differentials
+        layer = layers_to_check[itr % len(layers_to_check)]
+        weights[:itr] = ksums[:itr, layer]
+        diffs[: itr - 1] = np.diff(weights[:itr], axis=0)
+        if len(diffs[: itr - 1]) >= 2:
+            ddiffs[: itr - 1] = np.gradient(diffs[: itr - 1])
+        else:
+            ddiffs[: itr - 1] = 0
+
+        matsdiffs[: itr - 1] = np.diff(matsubara_freqs[:itr])
+
+        checks = matsdiffs[: itr - 1] > 1
+        mats_idx = np.argmax(np.abs(checks * ddiffs[: itr - 1] * matsdiffs[: itr - 1]))
+        new_n = (matsubara_freqs[mats_idx] + matsubara_freqs[mats_idx + 1]) // 2
+
+        # Insert new frequency
+        matsubara_freqs[: itr + 1] = np.concatenate(
+            [
+                matsubara_freqs[: mats_idx + 1],
+                [new_n],
+                matsubara_freqs[mats_idx + 1 : itr],
+            ]
+        )
+        new_ksum = calculate_ksum(new_n)
+        ksums[: itr + 1, :] = np.concatenate(
+            [
+                ksums[: mats_idx + 1, :],
+                [new_ksum],
+                ksums[mats_idx + 1 : itr, :],
+            ]
+        )
+
+        # Convergence check
+        if (itr + 1) % 10 == 0:
+            tol_check = []
+
+            tol_check = trapezoid(
+                np.abs(ksums[: itr + 1, :]) + 0.5 * np.abs(ksums[0, :]),
+                matsubara_freqs[: itr + 1].reshape(-1, 1).repeat(nlayers, axis=1),
+                axis=0,
+            )
+            tol_check = tol_check[layers_to_check]
+            if (
+                np.linalg.norm((tol_check - prev_tol_check) / prev_tol_check)
+                < rel_tolerance_greens
+            ):
+                stopped_changing += 1
+                if stopped_changing == 2:
+                    break
+            else:
+                stopped_changing = 0
+            prev_tol_check = tol_check
+
+    return itr, matsubara_freqs, ksums
+
+
 def GKTH_Greens(
     p: GlobalParams,
     layers: List[Layer],
@@ -479,84 +562,17 @@ def GKTH_Greens_radial(
 
     # Matsubara calculations
     imaginary_identity_m = 1j * np.eye(4 * nlayers, 4 * nlayers)
-    first_freqs = np.array([0, maxMatsubara])
-    matsubara_freqs = np.zeros(maxCalcs)
-    ksums = np.zeros((maxCalcs, nlayers))
-    matsubara_freqs[:2] = first_freqs
 
-    for itr in range(2):
-        ksums[itr, :] = calculate_ksum(
-            matsubara_freqs[itr],
-            base_m,
-            imaginary_identity_m,
-            D_factors,
-            area_factor,
-            p,
-        )
-
-    # Iterative sampling
-    prev_tol_check = 0
-    stopped_changing = 0
-    diffs = np.zeros(maxCalcs - 1)
-    ddiffs = np.zeros(maxCalcs - 1)
-    weights = np.zeros(maxCalcs)
-    matsdiffs = np.zeros(maxCalcs - 1)
-    weights[:2] = np.sum(np.abs(ksums[:2, :]), axis=1)
-    for itr in range(2, maxCalcs):
-        # Compute differentials
-        layer = layers_to_check[itr % len(layers_to_check)]
-        weights[:itr] = ksums[:itr, layer]
-        diffs[: itr - 1] = np.diff(weights[:itr], axis=0)
-        if len(diffs[: itr - 1]) >= 2:
-            ddiffs[: itr - 1] = np.gradient(diffs[: itr - 1])
-        else:
-            ddiffs[: itr - 1] = 0
-
-        matsdiffs[: itr - 1] = np.diff(matsubara_freqs[:itr])
-
-        checks = matsdiffs[: itr - 1] > 1
-        mats_idx = np.argmax(np.abs(checks * ddiffs[: itr - 1] * matsdiffs[: itr - 1]))
-        new_n = (matsubara_freqs[mats_idx] + matsubara_freqs[mats_idx + 1]) // 2
-
-        # Insert new frequency
-        matsubara_freqs[: itr + 1] = np.concatenate(
-            [
-                matsubara_freqs[: mats_idx + 1],
-                [new_n],
-                matsubara_freqs[mats_idx + 1 : itr],
-            ]
-        )
-        new_ksum = calculate_ksum(
-            new_n, base_m, imaginary_identity_m, D_factors, area_factor, p
-        )
-        ksums[: itr + 1, :] = np.concatenate(
-            [
-                ksums[: mats_idx + 1, :],
-                [new_ksum],
-                ksums[mats_idx + 1 : itr, :],
-            ]
-        )
-
-        # Convergence check
-        if (itr + 1) % 10 == 0:
-            tol_check = []
-
-            tol_check = trapezoid(
-                np.abs(ksums[: itr + 1, :]) + 0.5 * np.abs(ksums[0, :]),
-                matsubara_freqs[: itr + 1].reshape(-1, 1).repeat(nlayers, axis=1),
-                axis=0,
-            )
-            tol_check = tol_check[layers_to_check]
-            if (
-                np.linalg.norm((tol_check - prev_tol_check) / prev_tol_check)
-                < p.rel_tolerance_Greens
-            ):
-                stopped_changing += 1
-                if stopped_changing == 2:
-                    break
-            else:
-                stopped_changing = 0
-            prev_tol_check = tol_check
+    itr, matsubara_freqs, ksums = sample_matsubara_frequencies(
+        maxMatsubara,
+        maxCalcs,
+        nlayers,
+        lambda n: calculate_ksum(
+            n, base_m, imaginary_identity_m, D_factors, area_factor, p
+        ),
+        layers_to_check,
+        p.rel_tolerance_Greens,
+    )
 
     # Final integration
     Fs_sums = (
