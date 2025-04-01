@@ -173,8 +173,7 @@ def GKTH_Greens_current_radial(p: GlobalParams, layers: List[Layer], **kwargs):
 
         # Find the new index from the max of the weighting
         mats_idx = np.argmax(np.abs(checks * ddiffs[: itr - 1] * matsdiffs[: itr - 1]))
-
-        new_n = int((matsubara_freqs[mats_idx] + matsubara_freqs[mats_idx + 1]) // 2)
+        new_n = (matsubara_freqs[mats_idx] + matsubara_freqs[mats_idx + 1]) // 2
 
         # Stick the new n (sorted) into frequency array
         matsubara_freqs = np.concatenate(
@@ -184,11 +183,7 @@ def GKTH_Greens_current_radial(p: GlobalParams, layers: List[Layer], **kwargs):
                 matsubara_freqs[mats_idx + 1 : itr],
             ]
         )
-
-        # Calculate the sum over k for the new frequency
         new_ksum = calculate_ksum(new_n, base_m)
-
-        # Stick this into ksum array
         ksums = np.concatenate(
             [ksums[: mats_idx + 1], [new_ksum], ksums[mats_idx + 1 : itr]]
         )
@@ -224,9 +219,18 @@ def GKTH_Greens_current_radial(p: GlobalParams, layers: List[Layer], **kwargs):
     for interface in range(ninterfaces):
         for component in range(4):
             idx = 4 * interface + component
-            js[interface, component] = (
-                trapezoid(ksums[: itr + 1, idx], matsubara_freqs[: itr + 1])
-                + 0.5 * ksums[0, idx]
+            if idx == 0:
+                print(ksums[:, idx])
+            # TODO: Check this: Matlab convention is (x, y) but Python is (y, x).
+            # But for some reason it is interpreted as (x, y) here?
+            # (Leaving the constant inside and outside of the trapezoid function
+            # produces different results.)
+            js[interface, component] = -trapezoid(
+                matsubara_freqs[: itr + 1], ksums[: itr + 1, idx] + 0.5 * ksums[0, idx]
             )
+            # print(
+            #     trapezoid(matsubara_freqs[: itr + 1], ksums[: itr + 1, idx])
+            #     + 0.5 * ksums[0, idx]
+            # )
 
     return js, None, k1s, k2s, new_rs, radial_angles
