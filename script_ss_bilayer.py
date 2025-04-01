@@ -41,7 +41,8 @@ def load_or_compute_layer(
         layer = Layer(_lambda=0.0)
         layer.symmetry = symmetry
         layer.Delta_0 = Delta_0
-        _, layer = GKTH_fix_lambda(deepcopy(p), deepcopy(layer), Delta_target)
+        _lambda = GKTH_fix_lambda(deepcopy(p), deepcopy(layer), Delta_target)
+        layer._lambda = _lambda
         pickle.dump(layer, open(layer_path, "wb"))
         return layer
 
