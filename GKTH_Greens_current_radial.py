@@ -116,7 +116,6 @@ def GKTH_Greens_current_radial(p: GlobalParams, layers: List[Layer], **kwargs):
 
     # Handle optional parameters with default values
     include_spin = kwargs.get("include_spin", False)
-    minCalcs = kwargs.get("minCalcs", 50)
     maxCalcs = kwargs.get("maxCalcs", 500)
     maxMatsubara = kwargs.get("maxMatsubara", 1e7)
     layers_to_check = kwargs.get("layers_to_check", [0, 2])
@@ -192,8 +191,6 @@ def GKTH_Greens_current_radial(p: GlobalParams, layers: List[Layer], **kwargs):
     for itr in range(L):
         ksums[itr, :] = calculate_ksum(matsubara_freqs[itr])
         weights[itr] = np.linalg.norm(ksums[itr, :] * j_to_include)
-        if verbose:
-            values[itr, :] = [matsubara_freqs[itr], weights[itr]]
 
     # Iterate, dynamically sample new points based on weighting
     prev_tol_check = 0
@@ -244,7 +241,7 @@ def GKTH_Greens_current_radial(p: GlobalParams, layers: List[Layer], **kwargs):
         )
 
         # Every 10 iterations check for convergence
-        if itr % 10 == 0 and itr > minCalcs:
+        if itr % 10 == 0:
             tol_check = (
                 np.trapz(matsubara_freqs[: itr + 1], weights[: itr + 1])
                 + 0.5 * weights[0]
