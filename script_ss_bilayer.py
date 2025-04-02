@@ -20,6 +20,7 @@ from joblib import Parallel, delayed
 
 from constants import kB
 from GKTH_critical_current import GKTH_critical_current
+from GKTH_Greens_current_radial import GKTH_Greens_current_radial
 from Global_Parameter import GlobalParams
 from Green_Function import GKTH_fix_lambda
 from Layer import Layer
@@ -56,14 +57,10 @@ S1 = load_or_compute_layer("S1", 0.0016, kB * 1.764 * 10)
 S2 = load_or_compute_layer("S2", 0.00083, kB * 1.764 * 5)
 
 # d-wave high Tc
-# print(kB * 1.764 * 10 * 1.32)
 D1 = load_or_compute_layer("D1", 0.0022, kB * 1.764 * 10 * 1.32, symmetry="d")
-# %D1.lambda=GKTH_fix_lambda(p,D1,0.0023512)
 
 # d-wave low Tc
-# print(kB * 1.764 * 5 * 1.32)
 D2 = load_or_compute_layer("D2", 0.0012, kB * 1.764 * 5 * 1.32, symmetry="d")
-# %D2.lambda=GKTH_fix_lambda(p,D2,0.0010273);
 
 # Define variables
 nTs = 51  # Number of temperature points
@@ -135,6 +132,7 @@ def compute_critical_current(
     p1.T = T
 
     db_path = Path("data/critical_current") / f"{db_name}_critical.db"
+    db_path.parent.mkdir(parents=True, exist_ok=True)
     conn = sqlite3.connect(db_path)
     c = conn.cursor()
 
@@ -169,6 +167,61 @@ def compute_critical_current(
     print(f"Finished critical current: temperature = {p1.T}, tunneling = {p1.ts}")
 
 
+def compute_current(
+    db_name: str,
+    layers: List[Layer],
+    lattice_symmetry: str,
+    t: float,
+    T: float,
+    phase: float,
+):
+    p1 = deepcopy(p)
+    p1.lattice_symmetry = lattice_symmetry
+    p1.ts = np.array([t, t])
+    p1.T = T
+
+    db_path = Path("data/current") / f"{db_name}_current.db"
+    db_path.parent.mkdir(parents=True, exist_ok=True)
+    conn = sqlite3.connect(db_path)
+    c = conn.cursor()
+
+    # Create table if it doesn't exist
+    c.execute(
+        """CREATE TABLE IF NOT EXISTS current
+                (temperature REAL, tunneling REAL, jc REAL, phase REAL)"""
+    )
+
+    # If already in database, skip
+    c.execute(
+        "SELECT jc, phase FROM current WHERE temperature = ? AND tunneling = ?",
+        (p1.T, p1.ts[0]),
+    )
+    row = c.fetchone()
+    if row:
+        return row
+
+    print(
+        f"Starting current: temperature = {p1.T}, tunneling = {p1.ts}, phase = {phase}"
+    )
+    try:
+        layers_temp = deepcopy(layers)
+        layers_temp[2].phi = phase
+        jc, _, _, _, _, _ = GKTH_Greens_current_radial(p1, layers, db_name=db_name)
+        # Save results to sql
+        conn.execute(
+            "INSERT INTO current (temperature, tunneling, jc, phase) VALUES (?, ?, ?, ?)",
+            (p1.T, p1.ts[0], jc, phase),
+        )
+        conn.commit()
+        conn.close()
+    except Exception as e:
+        print(f"Error computing current: {e}")
+        traceback.print_exc()
+    print(
+        f"Finished current: temperature = {p1.T}, tunneling = {p1.ts}, phase = {phase}"
+    )
+
+
 # S-S
 # ss_fn = lambda i: compute_self_consistency(
 #     Path("data/ss_bilayer/ss_bilayer.db"), [S1, S2], i, "mm"
@@ -194,20 +247,45 @@ def compute_critical_current(
 # results = Parallel(n_jobs=-1)(delayed(sd_fn)(i) for i in range(nts * nTs))
 
 # Compute critical current
-# SNS
 t = np.round(0.5e-3, 9)  # Tunneling parameter
+# Normal metal layer
+N = Layer(_lambda=0.0, symmetry="n")
+
+# Critical currents
 nTs = 51  # Number of temperature points
 Ts = np.round(np.linspace(0.0, 0.001, nTs), 9)  # Temperature range
 Ts = Ts[1:]  # Remove T=0
 
-# Normal metal layer
-N = Layer(_lambda=0.0, symmetry="n")
+# SNS
+# sns_fn = lambda T: compute_critical_current("S1_N_S2", [S1, N, S2], "mm", t=t, T=T)
+# results = Parallel(n_jobs=-1)(delayed(sns_fn)(T) for T in Ts)
 
-sns_fn = lambda T: compute_critical_current("S1_N_S2", [S1, N, S2], "mm", t=t, T=T)
-results = Parallel(n_jobs=-1)(delayed(sns_fn)(T) for T in Ts)
+# sns_fn = lambda T: compute_critical_current("S1_N_S1", [S1, N, S1], "mm", t=t, T=T)
+# results = Parallel(n_jobs=-1)(delayed(sns_fn)(T) for T in Ts)
 
-sns_fn = lambda T: compute_critical_current("S1_N_S1", [S1, N, S1], "mm", t=t, T=T)
-results = Parallel(n_jobs=-1)(delayed(sns_fn)(T) for T in Ts)
+# sns_fn = lambda T: compute_critical_current("S2_N_S2", [S2, N, S2], "mm", t=t, T=T)
+# results = Parallel(n_jobs=-1)(delayed(sns_fn)(T) for T in Ts)
 
-sns_fn = lambda T: compute_critical_current("S2_N_S2", [S2, N, S2], "mm", t=t, T=T)
-results = Parallel(n_jobs=-1)(delayed(sns_fn)(T) for T in Ts)
+# Current vs Phase
+nTs = 21
+Ts = np.round(np.linspace(0.0, 0.001, nTs), 9)  # Temperature range
+Ts = Ts[1:]  # Remove T=0
+phases = np.round(np.linspace(-np.pi, np.pi, 21), 9)
+T_mesh, phase_mesh = np.meshgrid(Ts, phases)
+T_list = T_mesh.flatten()
+phase_list = phase_mesh.flatten()
+
+sns_fn = lambda i: compute_current(
+    "S1_N_S2", [S1, N, S2], "mm", t=t, T=T_list[i], phase=phase_list[i]
+)
+results = Parallel(n_jobs=-1)(delayed(sns_fn)(i) for i in range(len(T_list)))
+
+sns_fn = lambda i: compute_current(
+    "S1_N_S1", [S1, N, S1], "mm", t=t, T=T_list[i], phase=phase_list[i]
+)
+results = Parallel(n_jobs=-1)(delayed(sns_fn)(i) for i in range(len(T_list)))
+
+sns_fn = lambda i: compute_current(
+    "S2_N_S2", [S2, N, S2], "mm", t=t, T=T_list[i], phase=phase_list[i]
+)
+results = Parallel(n_jobs=-1)(delayed(sns_fn)(i) for i in range(len(T_list)))
