@@ -10,6 +10,7 @@
 
 import pickle
 import sqlite3
+import traceback
 from copy import deepcopy
 from pathlib import Path
 from typing import List
@@ -18,6 +19,7 @@ import numpy as np
 from joblib import Parallel, delayed
 
 from constants import kB
+from GKTH_critical_current import GKTH_critical_current
 from Global_Parameter import GlobalParams
 from Green_Function import GKTH_fix_lambda
 from Layer import Layer
@@ -117,6 +119,49 @@ def compute_self_consistency(
     return Ds, i
 
 
+def compute_critical_current(
+    db_name: str, layers: List[Layer], lattice_symmetry: str, t: float, T: float
+):
+    p1 = deepcopy(p)
+    p1.lattice_symmetry = lattice_symmetry
+    p1.ts = np.array([t, t])
+    p1.T = T
+
+    db_path = Path("data/critical_current") / f"{db_name}_critical.db"
+    conn = sqlite3.connect(db_path)
+    c = conn.cursor()
+
+    # Create table if it doesn't exist
+    c.execute(
+        """CREATE TABLE IF NOT EXISTS current
+                (temperature REAL, tunneling REAL, jc REAL, phase REAL)"""
+    )
+
+    # If already in database, skip
+    c.execute(
+        "SELECT jc, phase FROM current WHERE temperature = ? AND tunneling = ?",
+        (p1.T, p1.ts[0]),
+    )
+    row = c.fetchone()
+    if row:
+        return row
+
+    print(f"Starting critical current: temperature = {p1.T}, tunneling = {p1.ts}")
+    try:
+        jc, phase = GKTH_critical_current(p1, layers, db_name=db_name)
+        # Save results to sql
+        conn.execute(
+            "INSERT INTO current (temperature, tunneling, jc, phase) VALUES (?, ?, ?, ?)",
+            (p1.T, p1.ts[0], jc, phase),
+        )
+        conn.commit()
+        conn.close()
+    except Exception as e:
+        print(f"Error computing critical current: {e}")
+        traceback.print_exc()
+    print(f"Finished critical current: temperature = {p1.T}, tunneling = {p1.ts}")
+
+
 # S-S
 # ss_fn = lambda i: compute_self_consistency(
 #     Path("data/ss_bilayer/ss_bilayer.db"), [S1, S2], i, "mm"
@@ -136,7 +181,26 @@ def compute_self_consistency(
 # results = Parallel(n_jobs=-1)(delayed(ds_fn)(i) for i in range(nts * nTs))
 
 # Big S-Small D
-sd_fn = lambda i: compute_self_consistency(
-    Path("data/ss_bilayer/sd_bilayer.db"), [S1, D2], i, "mm"
-)
-results = Parallel(n_jobs=-1)(delayed(sd_fn)(i) for i in range(nts * nTs))
+# sd_fn = lambda i: compute_self_consistency(
+#     Path("data/ss_bilayer/sd_bilayer.db"), [S1, D2], i, "mm"
+# )
+# results = Parallel(n_jobs=-1)(delayed(sd_fn)(i) for i in range(nts * nTs))
+
+# Compute critical current
+# SNS
+t = np.round(0.5e-3, 9)  # Tunneling parameter
+nTs = 51  # Number of temperature points
+Ts = np.round(np.linspace(0.0, 0.001, nTs), 9)  # Temperature range
+Ts = Ts[1:]  # Remove T=0
+
+# Normal metal layer
+N = Layer(_lambda=0.0, symmetry="n")
+
+sns_fn = lambda T: compute_critical_current("S1_N_S2", [S1, N, S2], "mm", t=t, T=T)
+results = Parallel(n_jobs=-1)(delayed(sns_fn)(T) for T in Ts)
+
+sns_fn = lambda T: compute_critical_current("S1_N_S1", [S1, N, S1], "mm", t=t, T=T)
+results = Parallel(n_jobs=-1)(delayed(sns_fn)(T) for T in Ts)
+
+sns_fn = lambda T: compute_critical_current("S2_N_S2", [S2, N, S2], "mm", t=t, T=T)
+results = Parallel(n_jobs=-1)(delayed(sns_fn)(T) for T in Ts)

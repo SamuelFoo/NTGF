@@ -1,4 +1,6 @@
+import sqlite3
 import time
+from pathlib import Path
 from typing import List
 
 import numpy as np
@@ -9,7 +11,7 @@ from Global_Parameter import GlobalParams
 from Layer import Layer
 
 
-def GKTH_critical_current(p: GlobalParams, layers: List[Layer], **kwargs):
+def GKTH_critical_current(p: GlobalParams, layers: List[Layer], db_name: str, **kwargs):
     """
     Finds the maximum current vs phase for a given structure
 
@@ -52,20 +54,35 @@ def GKTH_critical_current(p: GlobalParams, layers: List[Layer], **kwargs):
     # can be used to find the maximum jc
     def jc_function(xs):
         start_time = time.time()
+
         if np.isscalar(xs):
             xs = [xs]
         js = np.zeros(len(xs))
+
+        # TODO: Update saving logic when len(xs) > 1s
+        assert len(xs) == 1, "Only one value of x is allowed at a time"
         for i in range(len(xs)):
             x = xs[i]
-            layers_temp = layers.copy()
-            layers_temp[layer_to_vary].phi = x
-            j_t, _, _, _, _, _ = GKTH_Greens_current_radial(
-                p, layers_temp, maxCalcs=maxCalcs
-            )
-            print("j_t", j_t)
-            js[i] = -j_t[0, 0]
+            x = np.round(x, 9)
+
+            is_present, j = check_database(T=p.T, t=p.ts[0], x=x, db_name=db_name)
+
+            if is_present:
+                js[i] = -j
+            else:
+                layers_temp = layers.copy()
+                layers_temp[layer_to_vary].phi = x
+                j_t, _, _, _, _, _ = GKTH_Greens_current_radial(
+                    p, layers_temp, maxCalcs=maxCalcs
+                )
+                js[i] = -j_t[0, 0]
+                print("js[i]", js[i])
+
+                save_current(T=p.T, t=p.ts[0], x=x, j=j_t[0, 0], db_name=db_name)
+
         elapsed_time = time.time() - start_time
         print(f"Elapsed time: {elapsed_time:.2f} seconds")
+
         return js[0] if len(js) == 1 else js
 
     # The minimum search
@@ -83,3 +100,50 @@ def GKTH_critical_current(p: GlobalParams, layers: List[Layer], **kwargs):
         jc = -jc_function(phase)
 
     return jc, phase
+
+
+def check_database(T: float, t: float, x: float, db_name: str):
+    db_path = Path("data/critical_current") / f"{db_name}_currents.db"
+
+    if not db_path.exists():
+        return False, None
+
+    conn = sqlite3.connect(db_path)
+    c = conn.cursor()
+
+    c.execute(
+        f"""CREATE TABLE IF NOT EXISTS {db_name}_currents
+                (temperature REAL, tunneling REAL, x REAL, j REAL)"""
+    )
+
+    c.execute(
+        f"SELECT j FROM {db_name}_currents WHERE temperature = ? AND tunneling = ? AND x = ?",
+        (T, t, x),
+    )
+    row = c.fetchone()
+
+    if row:
+        j = row[0]
+        print(f"Found j for T={T}, t={t}, x={x}: {j}")
+        return True, j
+    else:
+        return False, None
+
+
+def save_current(T: float, t: float, x: float, j: float, db_name: str):
+    db_path = Path("data/critical_current") / f"{db_name}_currents.db"
+    conn = sqlite3.connect(db_path)
+    c = conn.cursor()
+
+    c.execute(
+        f"""CREATE TABLE IF NOT EXISTS {db_name}_currents
+                (temperature REAL, tunneling REAL, x REAL, j REAL)"""
+    )
+
+    c.execute(
+        f"INSERT INTO {db_name}_currents (temperature, tunneling, x, j) VALUES (?, ?, ?, ?)",
+        (T, t, x, j),
+    )
+
+    conn.commit()
+    conn.close()
