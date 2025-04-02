@@ -193,8 +193,8 @@ def compute_current(
 
     # If already in database, skip
     c.execute(
-        "SELECT jc, phase FROM current WHERE temperature = ? AND tunneling = ?",
-        (p1.T, p1.ts[0]),
+        "SELECT jc, phase FROM current WHERE temperature = ? AND tunneling = ? AND phase = ?",
+        (p1.T, p1.ts[0], phase),
     )
     row = c.fetchone()
     if row:
@@ -206,7 +206,9 @@ def compute_current(
     try:
         layers_temp = deepcopy(layers)
         layers_temp[2].phi = phase
-        j_t, _, _, _, _, _ = GKTH_Greens_current_radial(p1, layers, db_name=db_name)
+        j_t, _, _, _, _, _ = GKTH_Greens_current_radial(
+            p1, layers_temp, db_name=db_name
+        )
         # Save results to sql
         conn.execute(
             "INSERT INTO current (temperature, tunneling, jc, phase) VALUES (?, ?, ?, ?)",
