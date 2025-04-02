@@ -44,6 +44,7 @@ def sample_matsubara_frequencies(
         layer = layers_to_check[itr % len(layers_to_check)]
         weights[:itr] = ksums[:itr, layer]
         diffs[: itr - 1] = np.diff(weights[:itr], axis=0)
+
         if len(diffs[: itr - 1]) >= 2:
             ddiffs[: itr - 1] = np.gradient(diffs[: itr - 1])
         else:
@@ -51,7 +52,10 @@ def sample_matsubara_frequencies(
 
         matsdiffs[: itr - 1] = np.diff(matsubara_freqs[:itr])
 
+        # Don't try to sample between points already next to each other
         checks = matsdiffs[: itr - 1] > 1
+
+        # Find the new index from the max of the weighting
         mats_idx = np.argmax(np.abs(checks * ddiffs[: itr - 1] * matsdiffs[: itr - 1]))
         new_n = (matsubara_freqs[mats_idx] + matsubara_freqs[mats_idx + 1]) // 2
 

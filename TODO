@@ -13,3 +13,5 @@
     - GKTH_self_consistency_2S_taketurns
   - script_ss_bilayer.py
 - Make GlobalParams and Layer immutable
+- Check all trapz calls (Matlab and scipy's y and x are flipped)
+- Refactor GKTH_Greens_current_radial by using sample_matsubara_frequencies
