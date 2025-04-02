@@ -1,6 +1,6 @@
 import sqlite3
 from pathlib import Path
-from typing import Callable
+from typing import Callable, List
 
 import matplotlib.pyplot as plt
 import numpy as np
@@ -297,6 +297,57 @@ def plot_current_angle(db_name):
 
     ax.set_ylabel(r"Current Density $(M A\ m^{-2})$")
     ax.set_xlim(-np.pi, np.pi)
+    return fig
+
+
+def plot_critical_current(db_name):
+    conn = sqlite3.connect(DATA_DIR / "critical_current" / db_name)
+    query = "SELECT temperature, tunneling, jc, phase FROM current"
+    df = pd.read_sql_query(query, conn)
+
+    axes: List[Axes]
+    fig, axes = plt.subplots(2, 1, figsize=(FIGURE_SIZE[0], FIGURE_SIZE[1] * 2))
+
+    plot_tuples = []
+    temperatures = []
+    for i, temperature in enumerate(df["temperature"].unique()):
+        subset = df[df["temperature"] == temperature]
+        plot_tuples.append(([temperature / kB], subset["jc"] / 1e6))
+        temperatures.append(temperature / kB)
+
+    sc = plot_series_cmap_log_scale(
+        axes[0],
+        axes[0].scatter,
+        plot_tuples,
+        temperatures,
+        min(temperatures),
+        max(temperatures),
+    )
+    sorted_idxs = np.argsort(df["temperature"])
+    sorted_df = df.iloc[sorted_idxs]
+    axes[0].plot(
+        sorted_df["temperature"] / kB, sorted_df["jc"] / 1e6, color="k", zorder=-1
+    )
+
+    cbar = fig.colorbar(sc)
+    cbar.set_label("Temperature (K)")
+    tick_values = [1.0, 2.0, 4.0, 8.0]
+    cbar.set_ticks(tick_values)
+    cbar.set_ticklabels([f"{t:.1f}" for t in tick_values])
+
+    axes[0].set_xlabel(r"Temperature $(K)$")
+    axes[0].set_ylabel(r"Critical Current Density $(M A\ m^{-2})$")
+    axes[0].set_xlim(0, 12)
+    axes[0].set_ylim(0, None)
+
+    axes[1].plot(sorted_df["temperature"] / kB, sorted_df["phase"], color="k")
+    axes[1].set_xlabel("Temperature (K)")
+    axes[1].set_ylabel("Phase (rad)")
+    y_ticks = [0, np.pi / 2, np.pi]
+    axes[1].set_yticks(y_ticks)
+    axes[1].set_yticklabels([r"$0$", r"$\pi/2$", r"$\pi$"])
+
+    return fig
 
 
 def drop_lambda(_lambda):
