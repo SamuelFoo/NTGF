@@ -306,7 +306,13 @@ def plot_critical_current(db_name):
     df = pd.read_sql_query(query, conn)
 
     axes: List[Axes]
-    fig, axes = plt.subplots(2, 1, figsize=(FIGURE_SIZE[0], FIGURE_SIZE[1] * 2))
+    fig, axes = plt.subplots(
+        2,
+        1,
+        figsize=(FIGURE_SIZE[0], FIGURE_SIZE[1] * 2),
+        sharex="all",
+        gridspec_kw={"hspace": 0},
+    )
 
     plot_tuples = []
     temperatures = []
@@ -329,23 +335,22 @@ def plot_critical_current(db_name):
         sorted_df["temperature"] / kB, sorted_df["jc"] / 1e6, color="k", zorder=-1
     )
 
-    cbar = fig.colorbar(sc)
-    cbar.set_label("Temperature (K)")
-    tick_values = [1.0, 2.0, 4.0, 8.0]
-    cbar.set_ticks(tick_values)
-    cbar.set_ticklabels([f"{t:.1f}" for t in tick_values])
-
-    axes[0].set_xlabel(r"Temperature $(K)$")
     axes[0].set_ylabel(r"Critical Current Density $(M A\ m^{-2})$")
-    axes[0].set_xlim(0, 12)
-    axes[0].set_ylim(0, None)
+    axes[0].set_ylim(0.1, None)
 
     axes[1].plot(sorted_df["temperature"] / kB, sorted_df["phase"], color="k")
-    axes[1].set_xlabel("Temperature (K)")
+    axes[1].set_xlabel(r"Temperature $(K)$")
+    axes[1].set_xlim(0, 12)
     axes[1].set_ylabel("Phase (rad)")
     y_ticks = [0, np.pi / 2, np.pi]
     axes[1].set_yticks(y_ticks)
     axes[1].set_yticklabels([r"$0$", r"$\pi/2$", r"$\pi$"])
+
+    cbar = fig.colorbar(sc, ax=axes.ravel().tolist())
+    cbar.set_label(r"Temperature $(K)$")
+    tick_values = [1.0, 2.0, 4.0, 8.0]
+    cbar.set_ticks(tick_values)
+    cbar.set_ticklabels([f"{t:.1f}" for t in tick_values])
 
     return fig
 
