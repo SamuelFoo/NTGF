@@ -106,17 +106,24 @@ def compute_self_consistency(
         return row
 
     print(f"Starting ss: temperature = {p1.T}, tunneling = {p1.ts}, {i} of {nts * nTs}")
-    Ds, _, _ = GKTH_self_consistency_2S_taketurns(p1, layers)
-    print(f"Finished ss: temperature = {p1.T}, tunneling = {p1.ts}, {i} of {nts * nTs}")
+    try:
+        Ds, _, _ = GKTH_self_consistency_2S_taketurns(p1, layers)
+        # Save results to sql
+        conn.execute(
+            "INSERT INTO ss_bilayer (temperature, tunneling, Ds_0, Ds_1) VALUES (?, ?, ?, ?)",
+            (p1.T, p1.ts[0], Ds[0], Ds[1]),
+        )
+        conn.commit()
+        conn.close()
+        print(
+            f"Finished ss: temperature = {p1.T}, tunneling = {p1.ts}, {i} of {nts * nTs}"
+        )
+        return Ds, i
 
-    # Save results to sql
-    conn.execute(
-        "INSERT INTO ss_bilayer (temperature, tunneling, Ds_0, Ds_1) VALUES (?, ?, ?, ?)",
-        (p1.T, p1.ts[0], Ds[0], Ds[1]),
-    )
-    conn.commit()
-    conn.close()
-    return Ds, i
+    except Exception as e:
+        print(f"Error: {e}")
+        conn.close()
+        return None
 
 
 def compute_critical_current(
