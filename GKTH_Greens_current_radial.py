@@ -219,8 +219,7 @@ def GKTH_Greens_current_radial(p: GlobalParams, layers: List[Layer], **kwargs):
     for interface in range(ninterfaces):
         for component in range(4):
             idx = 4 * interface + component
-            if idx == 0:
-                print(ksums[:, idx])
+
             # TODO: Check this: Matlab convention is (x, y) but Python is (y, x).
             # But for some reason it is interpreted as (x, y) here?
             # (Leaving the constant inside and outside of the trapezoid function
