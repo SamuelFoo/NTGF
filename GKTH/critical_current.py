@@ -7,9 +7,9 @@ from typing import List
 import numpy as np
 from scipy.optimize import fmin
 
-from GKTH_Greens_current_radial import GKTH_Greens_current_radial
-from Global_Parameter import GlobalParams
-from Layer import Layer
+from .Global_Parameter import GlobalParams
+from .Greens_current_radial import GKTH_Greens_current_radial
+from .Layer import Layer
 
 
 def GKTH_critical_current(p: GlobalParams, layers: List[Layer], db_name: str, **kwargs):

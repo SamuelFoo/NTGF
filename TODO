@@ -1,4 +1,5 @@
 - Rerun all after fixing rotate_y and rotate_z
+  - Rerun lambda 0.0 to 1.0
 - Use Simpson's instead of trapz
 - List of functions to check:
   - Green_Function.py

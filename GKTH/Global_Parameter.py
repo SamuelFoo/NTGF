@@ -2,7 +2,7 @@ from dataclasses import dataclass, field
 
 import numpy as np
 
-from constants import kB
+from .constants import kB
 
 
 @dataclass
@@ -43,7 +43,7 @@ class GlobalParams:
     m_symmetry_line: float = 0
     lattice_symmetry: str = "4mm"
     use_kspace_subsampling: bool = True
-    use_4mm_symmetry = True
+    # use_4mm_symmetry = True
 
     # The fraction of the number of points to aim for when subsampling. 1 is no subsampling,
     # 0.1 is 10% the number of points. Default 0.1.

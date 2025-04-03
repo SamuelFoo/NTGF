@@ -1,6 +1,6 @@
 import numpy as np
 
-from Global_Parameter import GlobalParams
+from .Global_Parameter import GlobalParams
 
 
 def GKTH_Delta(p: GlobalParams, symmetry: str, Delta: np.ndarray):

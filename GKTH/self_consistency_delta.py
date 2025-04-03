@@ -4,9 +4,9 @@ from typing import List
 import numpy as np
 from scipy.optimize import root, root_scalar
 
-from Global_Parameter import GlobalParams
-from Green_Function import GKTH_Greens, GKTH_Greens_radial
-from Layer import Layer
+from .Global_Parameter import GlobalParams
+from .Green_Function import GKTH_Greens, GKTH_Greens_radial
+from .Layer import Layer
 
 
 # Residual function for self-consistency
@@ -147,7 +147,7 @@ def GKTH_self_consistency_2S_taketurns(
         GKTH_self_consistency_2S_residual2D,
         x0=x,
         method="krylov",
-        options={"xatol": tol, "maxiter": 100},
+        options={"xatol": tol, "maxiter": 200},
     )
     Delta = sol.x
     if not sol.success:
