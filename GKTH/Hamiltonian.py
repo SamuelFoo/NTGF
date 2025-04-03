@@ -1,8 +1,9 @@
 from typing import List
 
 import numpy as np
-from Global_Parameter import GlobalParams
-from Layer import Layer
+
+from .Global_Parameter import GlobalParams
+from .Layer import Layer
 
 
 def rotate_y(m, theta):

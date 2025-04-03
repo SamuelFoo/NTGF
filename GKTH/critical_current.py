@@ -4,10 +4,11 @@ from pathlib import Path
 from typing import List
 
 import numpy as np
-from Global_Parameter import GlobalParams
-from Greens_current_radial import GKTH_Greens_current_radial
-from Layer import Layer
 from scipy.optimize import fmin
+
+from .Global_Parameter import GlobalParams
+from .Greens_current_radial import GKTH_Greens_current_radial
+from .Layer import Layer
 
 
 def GKTH_critical_current(p: GlobalParams, layers: List[Layer], db_name: str, **kwargs):

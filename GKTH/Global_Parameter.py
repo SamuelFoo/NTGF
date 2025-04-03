@@ -1,7 +1,8 @@
 from dataclasses import dataclass, field
 
 import numpy as np
-from constants import kB
+
+from .constants import kB
 
 
 @dataclass

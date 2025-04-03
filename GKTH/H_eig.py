@@ -1,9 +1,10 @@
 from typing import List
 
 import numpy as np
-from Global_Parameter import GlobalParams
-from Hamiltonian import GKTH_hamiltonian
-from Layer import Layer
+
+from .Global_Parameter import GlobalParams
+from .Hamiltonian import GKTH_hamiltonian
+from .Layer import Layer
 
 
 def GKTH_find_spectrum(p: GlobalParams, layers: List[Layer]) -> np.ndarray:

@@ -1,6 +1,7 @@
 import numpy as np
-from H_eig import GKTH_find_spectrum
 from scipy.optimize import minimize_scalar
+
+from .H_eig import GKTH_find_spectrum
 
 
 def GKTH_ksubsample(p, layers):
