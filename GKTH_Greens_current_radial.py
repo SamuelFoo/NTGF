@@ -9,7 +9,9 @@ from Green_Function import GKTH_find_radial_ks, GKTH_hamiltonian_k
 from Layer import Layer
 
 
-def GKTH_Greens_current_radial(p: GlobalParams, layers: List[Layer], **kwargs):
+def GKTH_Greens_current_radial(
+    p: GlobalParams, layers: List[Layer], include_spin=False, **kwargs
+):
     """
     Inverts the Hamiltonian and takes a sum over k1, k2 and Matsubara frequencies,
     returning the current between each layer.
@@ -83,7 +85,6 @@ def GKTH_Greens_current_radial(p: GlobalParams, layers: List[Layer], **kwargs):
         return j_txyz
 
     # Handle optional parameters with default values
-    include_spin = kwargs.get("include_spin", False)
     maxCalcs = kwargs.get("maxCalcs", 500)
     maxMatsubara = kwargs.get("maxMatsubara", 1e7)
     layers_to_check = kwargs.get("layers_to_check", [0, 2])
