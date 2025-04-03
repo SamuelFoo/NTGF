@@ -1,5 +1,6 @@
 import sqlite3
 import time
+from copy import deepcopy
 from pathlib import Path
 from typing import List
 
@@ -73,8 +74,9 @@ def GKTH_critical_current(p: GlobalParams, layers: List[Layer], db_name: str, **
                 layers_temp = layers.copy()
                 layers_temp[layer_to_vary].phi = x
                 j_t, _, _, _, _, _ = GKTH_Greens_current_radial(
-                    p, layers_temp, maxCalcs=maxCalcs
+                    p, layers_temp, maxCalcs=maxCalcs, include_spin=spin_current
                 )
+                print("j_t", j_t)
                 js[i] = -j_t[0, 0]
                 print("js[i]", js[i])
 
@@ -94,8 +96,11 @@ def GKTH_critical_current(p: GlobalParams, layers: List[Layer], db_name: str, **
         phase = phase - 2 * np.pi
 
     if spin_current:
-        layers[layer_to_vary].phi = phase
-        jc = GKTH_Greens_current_radial(p, layers, maxCalcs=maxCalcs)
+        layers_copy = deepcopy(layers)
+        layers_copy[layer_to_vary].phi = phase
+        jc = GKTH_Greens_current_radial(
+            deepcopy(p), layers_copy, maxCalcs=maxCalcs, include_spin=True
+        )
     else:
         jc = -jc_function(phase)
 

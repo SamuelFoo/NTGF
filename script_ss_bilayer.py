@@ -167,6 +167,70 @@ def compute_critical_current(
     print(f"Finished critical current: temperature = {p1.T}, tunneling = {p1.ts}")
 
 
+def compute_critical_current_ferromagnet(
+    db_name: str,
+    layers: List[Layer],
+    lattice_symmetry: str,
+    t: float,
+    T: float,
+    phase: float,
+    dE: float,
+):
+    p1 = deepcopy(p)
+    p1.lattice_symmetry = lattice_symmetry
+    p1.ts = np.array([t, t])
+    p1.T = T
+
+    db_path = Path("data/critical_current") / f"{db_name}_critical.db"
+    db_path.parent.mkdir(parents=True, exist_ok=True)
+    conn = sqlite3.connect(db_path)
+    c = conn.cursor()
+
+    # Create table if it doesn't exist
+    c.execute(
+        """CREATE TABLE IF NOT EXISTS current
+                (temperature REAL, tunneling REAL, jc REAL, phase REAL, dE REAL)"""
+    )
+
+    # If already in database, skip
+    c.execute(
+        "SELECT jc, phase FROM current WHERE temperature = ? AND tunneling = ? AND phase = ? AND dE = ?",
+        (p1.T, p1.ts[0], phase, dE),
+    )
+    row = c.fetchone()
+    if row:
+        return row
+
+    print(
+        f"Starting current: temperature = {p1.T}, tunneling = {p1.ts}, phase = {phase}, dE = {dE}"
+    )
+    try:
+        layers_temp = deepcopy(layers)
+        layers_temp[0].theta_ip = phase
+        layers_temp[2].theta_ip = phase
+        layers_temp[1].dE = dE
+        jc, phase = GKTH_critical_current(
+            p1, layers, db_name=db_name, spin_current=True
+        )
+        print("\n\n\n")
+        print(jc)
+        print("\n\n\n")
+
+        # Save results to sql
+        conn.execute(
+            "INSERT INTO current (temperature, tunneling, jc, phase, dE) VALUES (?, ?, ?, ?, ?)",
+            (p1.T, p1.ts[0], jc[0, 0], phase, dE),
+        )
+        conn.commit()
+        conn.close()
+    except Exception as e:
+        print(f"Error computing current: {e}")
+        traceback.print_exc()
+    print(
+        f"Finished current: temperature = {p1.T}, tunneling = {p1.ts}, phase = {phase}, dE = {dE}"
+    )
+
+
 def compute_current(
     db_name: str,
     layers: List[Layer],
@@ -250,15 +314,14 @@ def compute_current(
 
 # Compute critical current
 t = np.round(0.5e-3, 9)  # Tunneling parameter
-# Normal metal layer
-N = Layer(_lambda=0.0, symmetry="n")
 
 # Critical currents
-nTs = 51  # Number of temperature points
-Ts = np.round(np.linspace(0.0, 0.001, nTs), 9)  # Temperature range
-Ts = Ts[1:]  # Remove T=0
+# nTs = 51  # Number of temperature points
+# Ts = np.round(np.linspace(0.0, 0.001, nTs), 9)  # Temperature range
+# Ts = Ts[1:]  # Remove T=0
 
 # SNS
+# N = Layer(_lambda=0.0, symmetry="n")
 # sns_fn = lambda T: compute_critical_current("S1_N_S2", [S1, N, S2], "mm", t=t, T=T)
 # results = Parallel(n_jobs=-1)(delayed(sns_fn)(T) for T in Ts)
 
@@ -269,25 +332,43 @@ Ts = Ts[1:]  # Remove T=0
 # results = Parallel(n_jobs=-1)(delayed(sns_fn)(T) for T in Ts)
 
 # Current vs Phase
-nTs = 21
-Ts = np.round(np.linspace(0.0, 0.001, nTs), 9)  # Temperature range
-Ts = Ts[1:]  # Remove T=0
+# nTs = 21
+# Ts = np.round(np.linspace(0.0, 0.001, nTs), 9)  # Temperature range
+# Ts = Ts[1:]  # Remove T=0
+# phases = np.round(np.linspace(-np.pi, np.pi, 21), 9)
+# T_mesh, phase_mesh = np.meshgrid(Ts, phases)
+# T_list = T_mesh.flatten()
+# phase_list = phase_mesh.flatten()
+
+# sns_fn = lambda i: compute_current(
+#     "S1_N_S2", [S1, N, S2], "mm", t=t, T=T_list[i], phase=phase_list[i]
+# )
+# results = Parallel(n_jobs=-1)(delayed(sns_fn)(i) for i in range(len(T_list)))
+
+# sns_fn = lambda i: compute_current(
+#     "S1_N_S1", [S1, N, S1], "mm", t=t, T=T_list[i], phase=phase_list[i]
+# )
+# results = Parallel(n_jobs=-1)(delayed(sns_fn)(i) for i in range(len(T_list)))
+
+# sns_fn = lambda i: compute_current(
+#     "S2_N_S2", [S2, N, S2], "mm", t=t, T=T_list[i], phase=phase_list[i]
+# )
+# results = Parallel(n_jobs=-1)(delayed(sns_fn)(i) for i in range(len(T_list)))
+
+# SFS
+S1_hs = deepcopy(S1)
+S1_hs.h = 0.5e-3
+S2_hs = deepcopy(S2)
+S2_hs.h = 0.5e-3
+
+F = Layer(_lambda=0.0, symmetry="n")
+F.h = 10e-3
 phases = np.round(np.linspace(-np.pi, np.pi, 21), 9)
-T_mesh, phase_mesh = np.meshgrid(Ts, phases)
-T_list = T_mesh.flatten()
-phase_list = phase_mesh.flatten()
 
-sns_fn = lambda i: compute_current(
-    "S1_N_S2", [S1, N, S2], "mm", t=t, T=T_list[i], phase=phase_list[i]
-)
-results = Parallel(n_jobs=-1)(delayed(sns_fn)(i) for i in range(len(T_list)))
+T = 1 * kB
 
-sns_fn = lambda i: compute_current(
-    "S1_N_S1", [S1, N, S1], "mm", t=t, T=T_list[i], phase=phase_list[i]
+dE = 1e3
+sfs_fn = lambda phase: compute_critical_current_ferromagnet(
+    "S1_F_S2", [S1_hs, F, S2_hs], "mm", t=t, T=T, phase=phase, dE=dE
 )
-results = Parallel(n_jobs=-1)(delayed(sns_fn)(i) for i in range(len(T_list)))
-
-sns_fn = lambda i: compute_current(
-    "S2_N_S2", [S2, N, S2], "mm", t=t, T=T_list[i], phase=phase_list[i]
-)
-results = Parallel(n_jobs=-1)(delayed(sns_fn)(i) for i in range(len(T_list)))
+results = Parallel(n_jobs=-1)(delayed(sfs_fn)(phase) for phase in phases)
