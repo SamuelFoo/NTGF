@@ -1,7 +1,6 @@
 from typing import List
 
 import numpy as np
-
 from Global_Parameter import GlobalParams
 from Hamiltonian import GKTH_hamiltonian
 from Layer import Layer

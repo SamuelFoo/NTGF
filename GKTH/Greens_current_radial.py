@@ -2,11 +2,10 @@ from copy import deepcopy
 from typing import List
 
 import numpy as np
-from scipy.integrate import trapezoid
-
 from Global_Parameter import GlobalParams
 from Green_Function import GKTH_find_radial_ks, GKTH_hamiltonian_k
 from Layer import Layer
+from scipy.integrate import trapezoid
 
 
 def GKTH_Greens_current_radial(p: GlobalParams, layers: List[Layer], **kwargs):

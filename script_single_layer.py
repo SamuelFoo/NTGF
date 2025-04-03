@@ -9,10 +9,10 @@ from matplotlib.axes import Axes
 from matplotlib.colors import LogNorm
 from skimage import measure
 
-from constants import kB
-from Global_Parameter import GlobalParams
-from Layer import Layer
-from self_consistency_delta import (
+from GKTH.constants import kB
+from GKTH.Global_Parameter import GlobalParams
+from GKTH.Layer import Layer
+from GKTH.self_consistency_delta import (
     GKTH_self_consistency_1S_find_root,
     GKTH_self_consistency_1S_iterate,
 )

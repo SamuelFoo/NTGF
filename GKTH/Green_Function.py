@@ -2,15 +2,14 @@ from copy import deepcopy
 from typing import List, Tuple
 
 import numpy as np
-from scipy.integrate import trapezoid
-from scipy.interpolate import interp1d
-
 from constants import kB
 from Global_Parameter import GlobalParams
 from Hamiltonian import GKTH_Delta_k, GKTH_hamiltonian, GKTH_hamiltonian_k
 from k_space_flipping import GKTH_flipflip
 from ksubsample import GKTH_ksubsample
 from Layer import GKTH_Delta, Layer
+from scipy.integrate import trapezoid
+from scipy.interpolate import interp1d
 
 
 def sample_matsubara_frequencies(

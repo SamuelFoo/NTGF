@@ -18,13 +18,13 @@ from typing import List
 import numpy as np
 from joblib import Parallel, delayed
 
-from constants import kB
-from GKTH_critical_current import GKTH_critical_current
-from GKTH_Greens_current_radial import GKTH_Greens_current_radial
-from Global_Parameter import GlobalParams
-from Green_Function import GKTH_fix_lambda
-from Layer import Layer
-from self_consistency_delta import GKTH_self_consistency_2S_taketurns
+from GKTH.constants import kB
+from GKTH.critical_current import GKTH_critical_current
+from GKTH.Global_Parameter import GlobalParams
+from GKTH.Green_Function import GKTH_fix_lambda
+from GKTH.Greens_current_radial import GKTH_Greens_current_radial
+from GKTH.Layer import Layer
+from GKTH.self_consistency_delta import GKTH_self_consistency_2S_taketurns
 
 # Global parameters
 p = GlobalParams()
