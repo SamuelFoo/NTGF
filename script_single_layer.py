@@ -165,3 +165,17 @@ def get_contour(
     x_scale = 1 / x_mesh.shape[1] * x_mesh.max()
     y_scale = 1 / y_mesh.shape[1] * y_mesh.max()
     return contour[:, 1] * x_scale, contour[:, 0] * y_scale
+
+
+if __name__ == "__main__":
+    # drop_lambda(0.02)
+    lambda_list = np.round(np.linspace(0.0, 0.1, 6), 9)
+    h_end_list = np.round(np.repeat(1e-3, len(lambda_list)), 9)
+    max_Delta_list = np.round(np.repeat(2e-3, len(lambda_list)), 9)
+
+    # lambda_list = [0.1, 0.15, 0.2]
+    # h_end_list = [1e-3, 2e-2, 5e-2]
+    # max_Delta_list = [2e-3, 2e-2, 50e-3]
+
+    for _lambda, h_end, max_Delta in zip(lambda_list, h_end_list, max_Delta_list):
+        run_for_lambda(_lambda, h_end=h_end, delta_end=max_Delta)
