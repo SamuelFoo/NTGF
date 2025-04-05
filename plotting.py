@@ -1,12 +1,15 @@
 import sqlite3
-from typing import Callable, List
+from typing import Callable
 
 import matplotlib
 import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
 from matplotlib.axes import Axes
-from matplotlib.colors import LogNorm
+from matplotlib.colors import LogNorm, Normalize
+from matplotlib.figure import Figure
+from numpy.typing import NDArray
+from skimage import measure
 
 from GKTH.constants import kB
 from script_single_layer import (
@@ -257,3 +260,74 @@ def plot_critical_current(layers_str: str, tunneling: float):
     cbar.set_ticklabels([f"{t:.1f}" for t in tick_values])
 
     return fig
+
+
+def get_contour(
+    x_mesh: np.ndarray, y_mesh: np.ndarray, z_mesh: np.ndarray, value: np.float64
+):
+    contours = measure.find_contours(z_mesh, value)
+    contour = contours[0]
+    x_scale = 1 / x_mesh.shape[1] * x_mesh.max()
+    y_scale = 1 / y_mesh.shape[1] * y_mesh.max()
+    return contour[:, 1] * x_scale, contour[:, 0] * y_scale
+
+
+def plot_residual_phase(
+    fig: Figure,
+    ax: Axes,
+    _lambda: float,
+    Delta_mesh_mev: NDArray,
+    h_mesh_mev: NDArray,
+    residual_mesh_mev: NDArray,
+):
+    bound = np.abs((residual_mesh_mev).max())
+    normalize = Normalize(vmin=-bound, vmax=bound)
+
+    ax.set_xlabel(r"$\Delta_0$ (meV)")
+    ax.set_ylabel("h (meV)")
+
+    sc = ax.contourf(
+        Delta_mesh_mev,
+        h_mesh_mev,
+        residual_mesh_mev,
+        cmap="bwr",
+        norm=normalize,
+        levels=100,
+    )
+    cbar = fig.colorbar(sc, label="$\delta \Delta$ (meV)")
+    return cbar
+
+
+def plot_residual_phase_stability(
+    ax: Axes,
+    Delta_mesh_mev: NDArray,
+    h_mesh_mev: NDArray,
+    residual_mesh_mev: NDArray,
+):
+    zeros_x, zeros_y = get_contour(Delta_mesh_mev, h_mesh_mev, residual_mesh_mev, 0.0)
+
+    # Remove ill-defined points at x = 0
+    zeros_y = zeros_y[zeros_x != 0]
+    zeros_x = zeros_x[zeros_x != 0]
+
+    # Sort by x coord
+    sort_idxs = np.argsort(zeros_x)
+    zeros_x = zeros_x[sort_idxs]
+    zeros_y = zeros_y[sort_idxs]
+
+    zeros_grad = np.gradient(zeros_y, zeros_x)
+    (neg_grad_idxs,) = np.where(zeros_grad <= 0)
+
+    # Midpoint idx is the first index such that more than 90% of subsequent gradients are negative
+    midpoint = neg_grad_idxs[
+        np.argmax(np.diff(neg_grad_idxs) > 0.9 * len(neg_grad_idxs))
+    ]
+    ax.plot(zeros_x[midpoint:], zeros_y[midpoint:], color="k", label="Stable")
+    ax.plot(
+        zeros_x[: midpoint + 1],
+        zeros_y[: midpoint + 1],
+        color="k",
+        linestyle="--",
+        label="Unstable",
+    )
+    ax.legend()

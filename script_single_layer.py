@@ -2,13 +2,13 @@ import sqlite3
 from pathlib import Path
 
 import numpy as np
-from skimage import measure
 
 from GKTH.Global_Parameter import GlobalParams
 from GKTH.Layer import Layer
 from GKTH.self_consistency_delta import (
     GKTH_self_consistency_1S_find_root,
     GKTH_self_consistency_1S_iterate,
+    GKTH_self_consistency_1S_residual,
 )
 
 DATA_DIR = Path("data")
@@ -89,6 +89,66 @@ def get_residuals(_lambda, Delta_list, h_list):
     return residual_list
 
 
+def run_residuals_phase(_lambda: float, h_end: float, max_Delta: float, N: int):
+    Delta_lin = np.round(np.linspace(0.00, max_Delta, N), 9)
+    h_lin = np.round(np.linspace(0.00, h_end, N), 9)
+
+    Delta_mesh, h_mesh = np.meshgrid(Delta_lin, h_lin)
+
+    for Delta, h in zip(Delta_mesh.flatten(), h_mesh.flatten()):
+        # Connect to database
+        conn = sqlite3.connect(DATA_DIR / "residuals.db")
+        c = conn.cursor()
+
+        # Create table if it doesn't exist
+        conn.execute(
+            "CREATE TABLE IF NOT EXISTS residuals (lambda REAL, Delta REAL, h REAL, residual REAL)"
+        )
+
+        # If data is in the database, skip it
+        c.execute(
+            f"SELECT * FROM residuals WHERE lambda={_lambda} AND Delta={Delta} AND h={h}"
+        )
+        query = c.fetchone()
+        if query is not None:
+            residual = query[3]
+            print(f"Delta: {Delta}, h: {h}, residual: {residual}")
+            continue
+
+        # Get result
+        p = GlobalParams(h=h)
+        layers = [Layer(_lambda=_lambda)]
+
+        residual = GKTH_self_consistency_1S_residual(
+            Delta_0_fit=Delta, p=p, layers=layers, layers_to_check=[0]
+        )
+
+        # Insert into database
+        c.execute(f"INSERT INTO residuals VALUES ({_lambda}, {Delta}, {h}, {residual})")
+        conn.commit()
+        conn.close()
+
+        print(f"Delta: {Delta}, h: {h}, residual: {residual}")
+
+
+def get_residuals_phase(_lambda: float, max_Delta: float, h_end: float, N: int):
+    Delta_lin = np.round(np.linspace(0.00, max_Delta, N), 9)
+    h_lin = np.round(np.linspace(0.00, h_end, N), 9)
+    Delta_mesh, h_mesh = np.meshgrid(Delta_lin, h_lin)
+
+    # Query residuals from database
+    Delta_list = Delta_mesh.flatten()
+    h_list = h_mesh.flatten()
+    residual_list = get_residuals(_lambda, Delta_list, h_list)
+    residual_mesh = np.array(residual_list).reshape(Delta_mesh.shape)
+
+    Delta_mesh_mev = Delta_mesh * 1e3
+    h_mesh_mev = h_mesh * 1e3
+    residual_mesh_mev = residual_mesh * 1e3
+
+    return Delta_mesh_mev, h_mesh_mev, residual_mesh_mev
+
+
 def run_for_lambda(_lambda, h_end=1e-3, delta_end=2e-3):
     # Round to take care of floating point errors
     h_list = np.round(np.linspace(0, h_end, 21), 9)
@@ -157,16 +217,6 @@ def drop_lambda(_lambda):
     conn.close()
 
 
-def get_contour(
-    x_mesh: np.ndarray, y_mesh: np.ndarray, z_mesh: np.ndarray, value: np.float64
-):
-    contours = measure.find_contours(z_mesh, value)
-    contour = contours[0]
-    x_scale = 1 / x_mesh.shape[1] * x_mesh.max()
-    y_scale = 1 / y_mesh.shape[1] * y_mesh.max()
-    return contour[:, 1] * x_scale, contour[:, 0] * y_scale
-
-
 if __name__ == "__main__":
     # drop_lambda(0.02)
     lambda_list = np.round(np.linspace(0.0, 0.1, 6), 9)
@@ -179,3 +229,11 @@ if __name__ == "__main__":
 
     for _lambda, h_end, max_Delta in zip(lambda_list, h_end_list, max_Delta_list):
         run_for_lambda(_lambda, h_end=h_end, delta_end=max_Delta)
+
+    lambda_list = [0.1, 0.15, 0.2]
+    h_end_list = [1e-3, 2e-2, 5e-2]
+    max_Delta_list = [2e-3, 2e-2, 50e-3]
+    N = 41
+
+    for _lambda, h_end, max_Delta in zip(lambda_list, h_end_list, max_Delta_list):
+        run_residuals_phase(_lambda, h_end=h_end, max_Delta=max_Delta, N=N)
