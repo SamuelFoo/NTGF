@@ -194,6 +194,7 @@ def compute_current(
 
 
 if __name__ == "__main__":
+    # SNS
     # Compute critical current
     tunneling_params = np.array([0.1, 0.25, 0.5, 1, 2, 5, 10]) * 1e-3
     tunneling_params = np.round(tunneling_params, 9)
@@ -202,7 +203,6 @@ if __name__ == "__main__":
     Ts = np.round(np.linspace(0.0, 0.001, nTs), 9)  # Temperature range
     Ts = Ts[1:]  # Remove T=0
 
-    # SNS
     for t in tunneling_params:
         N = Layer(_lambda=0.0, symmetry="n")
         sns_fn = lambda T: compute_critical_current(
