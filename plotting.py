@@ -1,6 +1,7 @@
 import sqlite3
 from typing import Callable, List
 
+import matplotlib
 import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
@@ -16,6 +17,10 @@ from script_single_layer import (
 )
 
 FIGURE_SIZE = (8, 4)
+
+font = {"size": 12}
+matplotlib.rc("font", **font)
+matplotlib.rc("axes", **{"xmargin": 0})  # No padding on x-axis
 
 
 def plot_series_cmap(
@@ -128,13 +133,11 @@ def plot_for_lambda_h_list(_lambda, h_list):
     return fig
 
 
-def plot_current_angle(db_name):
+def get_current_angle_subplot(ax: Axes, layers_str: str, tunneling: float):
+    db_name = f"{layers_str}_current.db"
     conn = sqlite3.connect(DATA_DIR / "current" / db_name)
-    query = "SELECT temperature, tunneling, jc, phase FROM current"
+    query = f"SELECT temperature, tunneling, jc, phase FROM current WHERE tunneling = {tunneling}"
     df = pd.read_sql_query(query, conn)
-
-    fig = plt.figure(figsize=FIGURE_SIZE)
-    ax = fig.add_subplot(111)
 
     plot_tuples = []
     temperatures = []
@@ -146,69 +149,108 @@ def plot_current_angle(db_name):
     sc = plot_series_cmap_log_scale(
         ax, ax.plot, plot_tuples, temperatures, min(temperatures), max(temperatures)
     )
-    cbar = fig.colorbar(sc)
-    cbar.set_label("Temperature (K)")
-    tick_values = [1.0, 2.0, 4.0, 8.0]
-    cbar.set_ticks(tick_values)
-    cbar.set_ticklabels([f"{t:.1f}" for t in tick_values])
 
     ax.set_xlabel("Phase (rad)")
+    ax.set_ylabel(r"$j$ $(M A\ m^{-2})$")
+    ax.set_xlim(-np.pi, np.pi)
+
     x_ticks = [-np.pi, -np.pi / 2, 0, np.pi / 2, np.pi]
     ax.set_xticks(x_ticks)
     ax.set_xticklabels([r"$-\pi$", r"$-\pi/2$", r"$0$", r"$\pi/2$", r"$\pi$"])
 
-    ax.set_ylabel(r"Current Density $(M A\ m^{-2})$")
-    ax.set_xlim(-np.pi, np.pi)
-    return fig
+    return sc
 
 
-def plot_critical_current(db_name):
+def get_critical_current_data(layers_str: str, tunneling: float):
+    """Get the critical current data from the database.
+
+    Args:
+        layers_str (str): String representation of the layers. E.g., "S1_N_S2"
+        tunneling (float): Tunneling parameter.
+
+    Returns:
+        df: DataFrame sorted by temperature with columns:
+            - temperature (in Kelvin)
+            - tunneling (in meV)
+            - jc (critical current density in A/m^2)
+            - phase (in rad)
+    """
+    db_name = f"{layers_str}_critical.db"
     conn = sqlite3.connect(DATA_DIR / "critical_current" / db_name)
-    query = "SELECT temperature, tunneling, jc, phase FROM current"
+    query = f"SELECT temperature, tunneling, jc, phase FROM current WHERE tunneling = {tunneling}"
     df = pd.read_sql_query(query, conn)
+    df["temperature"] = df["temperature"] / kB
+    df["jc"] = df["jc"] / 1e6
 
-    axes: List[Axes]
-    fig, axes = plt.subplots(
-        2,
-        1,
-        figsize=(FIGURE_SIZE[0], FIGURE_SIZE[1] * 2),
-        sharex="all",
-        gridspec_kw={"hspace": 0},
-    )
+    sorted_idxs = np.argsort(df["temperature"])
+    sorted_df = df.iloc[sorted_idxs]
+
+    return sorted_df
+
+
+def get_critical_current_subplot(ax: Axes, layers_str: str, tunneling: float):
+    df = get_critical_current_data(layers_str, tunneling)
 
     plot_tuples = []
     temperatures = []
-    for i, temperature in enumerate(df["temperature"].unique()):
+    for temperature in df["temperature"].unique():
         subset = df[df["temperature"] == temperature]
-        plot_tuples.append(([temperature / kB], subset["jc"] / 1e6))
-        temperatures.append(temperature / kB)
+        plot_tuples.append(([temperature], subset["jc"]))
+        temperatures.append(temperature)
 
     sc = plot_series_cmap_log_scale(
-        axes[0],
-        axes[0].scatter,
-        plot_tuples,
-        temperatures,
-        min(temperatures),
-        max(temperatures),
+        ax, ax.scatter, plot_tuples, temperatures, min(temperatures), max(temperatures)
     )
-    sorted_idxs = np.argsort(df["temperature"])
-    sorted_df = df.iloc[sorted_idxs]
-    axes[0].plot(
-        sorted_df["temperature"] / kB, sorted_df["jc"] / 1e6, color="k", zorder=-1
-    )
+    ax.plot(df["temperature"], df["jc"], color="k", zorder=-1)
 
-    axes[0].set_ylabel(r"Critical Current Density $(M A\ m^{-2})$")
-    axes[0].set_ylim(0.1, None)
+    ax.set_xlabel(r"Temperature $(K)$")
+    ax.set_ylabel(r"$j_c$ $(M A\ m^{-2})$")
+    ax.set_xlim(0, 12)
+    ax.set_ylim(0.1, None)
 
-    axes[1].plot(sorted_df["temperature"] / kB, sorted_df["phase"], color="k")
-    axes[1].set_xlabel(r"Temperature $(K)$")
-    axes[1].set_xlim(0, 12)
-    axes[1].set_ylabel("Phase (rad)")
+    return sc
+
+
+def get_critical_phase_subplot(ax: Axes, layers_str: str, tunneling: float):
+    df = get_critical_current_data(layers_str, tunneling)
+
+    ax.plot(df["temperature"], df["phase"], color="k")
+
+    ax.set_xlabel(r"Temperature $(K)$")
+    ax.set_ylabel("Phase (rad)")
+    ax.set_xlim(0, 12)
     y_ticks = [0, np.pi / 2, np.pi]
-    axes[1].set_yticks(y_ticks)
-    axes[1].set_yticklabels([r"$0$", r"$\pi/2$", r"$\pi$"])
+    ax.set_yticks(y_ticks)
+    ax.set_yticklabels([r"$0$", r"$\pi/2$", r"$\pi$"])
 
-    cbar = fig.colorbar(sc, ax=axes.ravel().tolist())
+
+def plot_critical_current(layers_str: str, tunneling: float):
+    fig = plt.figure(figsize=(FIGURE_SIZE[0], FIGURE_SIZE[1] * 3 * 0.8))
+
+    ax1 = fig.add_subplot(311)
+    ax2 = fig.add_subplot(312)
+    ax3 = fig.add_subplot(313, sharex=ax2)
+
+    pos1 = ax1.get_position()
+    pos2 = ax2.get_position()
+    pos3 = ax3.get_position()
+    ax3.set_position([pos3.x0, pos2.y0 - pos3.height, pos3.width, pos3.height])
+    ax1.set_position([pos1.x0, pos1.y0 + 0.04, pos1.width, pos1.height])
+    plt.setp(ax2.get_xticklabels(), visible=False)
+
+    # Add labels to the plots
+    ax1.text(0.05, 0.95, "(a)", transform=ax1.transAxes, va="top", ha="center")
+    ax2.text(0.95, 0.95, "(b)", transform=ax2.transAxes, va="top", ha="center")
+    ax3.text(0.05, 0.95, "(c)", transform=ax3.transAxes, va="top", ha="center")
+
+    get_current_angle_subplot(ax1, layers_str, tunneling)
+    sc = get_critical_current_subplot(ax2, layers_str, tunneling)
+    get_critical_phase_subplot(ax3, layers_str, tunneling)
+
+    ax2.set_xlabel("")
+
+    axes = [ax1, ax2, ax3]
+    cbar = fig.colorbar(sc, ax=axes)
     cbar.set_label(r"Temperature $(K)$")
     tick_values = [1.0, 2.0, 4.0, 8.0]
     cbar.set_ticks(tick_values)

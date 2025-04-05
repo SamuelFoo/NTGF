@@ -313,17 +313,19 @@ def compute_current(
 # results = Parallel(n_jobs=-1)(delayed(sd_fn)(i) for i in range(nts * nTs))
 
 # Compute critical current
-t = np.round(0.5e-3, 9)  # Tunneling parameter
+tunneling_params = np.array([0.1, 0.25, 0.5, 1, 2, 5, 10]) * 1e-3
+tunneling_params = np.round(tunneling_params, 9)
 
 # Critical currents
-# nTs = 51  # Number of temperature points
-# Ts = np.round(np.linspace(0.0, 0.001, nTs), 9)  # Temperature range
-# Ts = Ts[1:]  # Remove T=0
+nTs = 51  # Number of temperature points
+Ts = np.round(np.linspace(0.0, 0.001, nTs), 9)  # Temperature range
+Ts = Ts[1:]  # Remove T=0
 
 # SNS
-# N = Layer(_lambda=0.0, symmetry="n")
-# sns_fn = lambda T: compute_critical_current("S1_N_S2", [S1, N, S2], "mm", t=t, T=T)
-# results = Parallel(n_jobs=-1)(delayed(sns_fn)(T) for T in Ts)
+for t in tunneling_params:
+    N = Layer(_lambda=0.0, symmetry="n")
+    sns_fn = lambda T: compute_critical_current("S1_N_S2", [S1, N, S2], "mm", t=t, T=T)
+    results = Parallel(n_jobs=-1)(delayed(sns_fn)(T) for T in Ts)
 
 # sns_fn = lambda T: compute_critical_current("S1_N_S1", [S1, N, S1], "mm", t=t, T=T)
 # results = Parallel(n_jobs=-1)(delayed(sns_fn)(T) for T in Ts)
