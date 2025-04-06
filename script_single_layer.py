@@ -1,7 +1,9 @@
 import sqlite3
+from copy import deepcopy
 from pathlib import Path
 
 import numpy as np
+from joblib import Parallel, delayed
 
 from GKTH.Global_Parameter import GlobalParams
 from GKTH.Layer import Layer
@@ -70,23 +72,17 @@ def get_delta_vs_h(_lambda):
     return h_list, Deltas
 
 
-def get_residuals(_lambda, Delta_list, h_list):
-    residual_list = []
+def get_single_layer_list(_lambda: float):
+    layer = Layer(_lambda=_lambda, symmetry="s")
+    layer.Delta_0 = 0.01
+    layer.tNN = -0.1523
+    layer.tNNN = 0
+    layer.mu = 0.1025
+    return [layer]
 
-    for Delta, h in zip(Delta_list, h_list):
-        conn = sqlite3.connect(DATA_DIR / "residuals.db")
-        c = conn.cursor()
 
-        c.execute(
-            f"SELECT * FROM residuals WHERE lambda={_lambda} AND Delta={Delta} AND h={h}"
-        )
-        query = c.fetchone()
-        residual = query[3]
-        residual_list.append(residual)
-
-        conn.close()
-
-    return residual_list
+def get_single_layer_parameters(h: float):
+    return GlobalParams(h=h, a=3.30e-10, nkpoints=300)
 
 
 def run_residuals_phase(_lambda: float, h_end: float, max_Delta: float, N: int):
@@ -116,8 +112,8 @@ def run_residuals_phase(_lambda: float, h_end: float, max_Delta: float, N: int):
             continue
 
         # Get result
-        p = GlobalParams(h=h)
-        layers = [Layer(_lambda=_lambda)]
+        p = get_single_layer_parameters(h)
+        layers = get_single_layer_list(_lambda)
 
         residual = GKTH_self_consistency_1S_residual(
             Delta_0_fit=Delta, p=p, layers=layers, layers_to_check=[0]
@@ -129,6 +125,25 @@ def run_residuals_phase(_lambda: float, h_end: float, max_Delta: float, N: int):
         conn.close()
 
         print(f"Delta: {Delta}, h: {h}, residual: {residual}")
+
+
+def get_residuals(_lambda, Delta_list, h_list):
+    residual_list = []
+
+    for Delta, h in zip(Delta_list, h_list):
+        conn = sqlite3.connect(DATA_DIR / "residuals.db")
+        c = conn.cursor()
+
+        c.execute(
+            f"SELECT * FROM residuals WHERE lambda={_lambda} AND Delta={Delta} AND h={h}"
+        )
+        query = c.fetchone()
+        residual = query[3]
+        residual_list.append(residual)
+
+        conn.close()
+
+    return residual_list
 
 
 def get_residuals_phase(_lambda: float, max_Delta: float, h_end: float, N: int):
@@ -156,7 +171,7 @@ def run_for_lambda(_lambda, h_end=1e-3, delta_end=2e-3):
     Deltas = []
 
     for h in h_list:
-        p = GlobalParams(h=h)
+        p = get_single_layer_parameters(h)
 
         # Connect to database
         conn = sqlite3.connect(DATA_DIR / "residual_delta.db")
@@ -176,19 +191,19 @@ def run_for_lambda(_lambda, h_end=1e-3, delta_end=2e-3):
         if c.fetchone():
             continue
 
-        # Find root where residuals are zero
-        layers = [Layer(_lambda=_lambda)]
-        Delta, layers = GKTH_self_consistency_1S_find_root(
-            p, layers, max_Delta=delta_end
-        )
-        Deltas.append(Delta)
+        layers = get_single_layer_list(_lambda)
 
         # See how residuals vary with Delta to check find root
-        layers = [Layer(_lambda=_lambda)]
         x_vals, residuals = GKTH_self_consistency_1S_iterate(
-            p, layers, max_Delta=delta_end
+            p, deepcopy(layers), max_Delta=delta_end
         )
         plot_tuples.append((x_vals, residuals))
+
+        # Find root where residuals are zero
+        Delta, layers = GKTH_self_consistency_1S_find_root(
+            p, deepcopy(layers), max_Delta=delta_end
+        )
+        Deltas.append(Delta)
 
         # Insert the data
         layers_data = list(map(lambda l: l.__dict__, layers))
@@ -218,17 +233,19 @@ def drop_lambda(_lambda):
 
 
 if __name__ == "__main__":
-    # drop_lambda(0.02)
     lambda_list = np.round(np.linspace(0.0, 0.1, 6), 9)
     h_end_list = np.round(np.repeat(1e-3, len(lambda_list)), 9)
     max_Delta_list = np.round(np.repeat(2e-3, len(lambda_list)), 9)
 
-    # lambda_list = [0.1, 0.15, 0.2]
-    # h_end_list = [1e-3, 2e-2, 5e-2]
-    # max_Delta_list = [2e-3, 2e-2, 50e-3]
+    lambda_list = np.append(lambda_list, [0.1, 0.15, 0.2])
+    h_end_list = np.append(h_end_list, [1e-3, 2e-2, 5e-2])
+    max_Delta_list = np.append(max_Delta_list, [2e-3, 2e-2, 50e-3])
 
-    for _lambda, h_end, max_Delta in zip(lambda_list, h_end_list, max_Delta_list):
-        run_for_lambda(_lambda, h_end=h_end, delta_end=max_Delta)
+    def lambda_fn(i):
+        drop_lambda(lambda_list[i])
+        run_for_lambda(lambda_list[i], h_end=h_end_list[i], delta_end=max_Delta_list[i])
+
+    result = Parallel(n_jobs=-1)(delayed(lambda_fn)(i) for i in range(len(lambda_list)))
 
     lambda_list = [0.1, 0.15, 0.2]
     h_end_list = [1e-3, 2e-2, 5e-2]

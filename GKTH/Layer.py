@@ -38,11 +38,9 @@ class Layer:
     # define its electronic spectrum, gap, and its contribution to the
     # overall Hamiltonian.
 
-    def __init__(self, _lambda, symmetry="s", n=None):
+    def __init__(self, _lambda, symmetry="s"):
         # Superconductivity
         self.Delta_0 = 0.0  # Delta_0
-        # 1D values
-        # self.Delta_0 = 0.01  # Delta_0
 
         # Symmetry of the superconductor: s=swave d=dwave or n=normal
         self.symmetry = symmetry
@@ -63,16 +61,7 @@ class Layer:
         self.tNN = -0.7823  # Nearest neighbour hopping parameter in eV
         self.tNNN = -0.0740  # Next-nearest neighbour hopping parameter in eV
         self.mu = 0.06525  # Chemical potential in eV
-        # 1D values
-        # self.tNN = -0.1523  # Nearest neighbour hopping parameter in eV
-        # self.tNNN = 0  # Next-nearest neighbour hopping parameter in eV
-        # self.mu = 0.1025  # Chemical potential in eV
-
         self.dispersion_type = "tb"  # Type of dispersion
-
-        # Handle array creation if n is provided
-        if n is not None:
-            return [Layer() for _ in range(n)]
 
     # Superconducting gap
     def Ds(self, p: GlobalParams):

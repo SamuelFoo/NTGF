@@ -294,7 +294,7 @@ def plot_residual_phase(
         norm=normalize,
         levels=100,
     )
-    cbar = fig.colorbar(sc, label="$\delta \Delta$ (meV)")
+    cbar = fig.colorbar(sc, label=r"$\delta \Delta$ (meV)")
     return cbar
 
 
