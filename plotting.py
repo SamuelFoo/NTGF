@@ -121,7 +121,7 @@ def plot_for_lambda(_lambda):
     ax.scatter([], [], color="black", marker="x", label="Root")
     ax.axhline(y=0, color="gray", linestyle="--")
     ax.set_xlabel(r"$\Delta_0$ (meV)")
-    ax.set_ylabel("Residual (meV)")
+    ax.set_ylabel(r"$\delta \Delta$ (meV)")
     ax.set_title(rf"$\lambda = {_lambda}$")
     ax.legend()
     return fig
@@ -280,7 +280,10 @@ def get_current_angle_data(layers_str: str, tunneling: float):
     df["temperature"] = df["temperature"] / kB
     df["jc"] = df["jc"] / 1e6
 
-    return df
+    sorted_idxs = np.argsort(df["phase"])
+    sorted_df = df.iloc[sorted_idxs]
+
+    return sorted_df
 
 
 def get_current_angle_subplot(ax: Axes, layers_str: str, tunneling: float):

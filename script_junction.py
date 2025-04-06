@@ -221,7 +221,7 @@ if __name__ == "__main__":
     nTs = 21
     Ts = np.round(np.linspace(0.0, 0.001, nTs), 9)  # Temperature range
     Ts = Ts[1:]  # Remove T=0
-    phases = np.round(np.linspace(-np.pi, np.pi, 21), 9)
+    phases = np.round(np.linspace(-np.pi, np.pi, 41), 9)
     T_mesh, phase_mesh = np.meshgrid(Ts, phases)
     T_list = T_mesh.flatten()
     phase_list = phase_mesh.flatten()
