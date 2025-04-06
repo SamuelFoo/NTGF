@@ -25,9 +25,9 @@ font = {"size": 12}
 matplotlib.rc("font", **font)
 matplotlib.rc("axes", **{"xmargin": 0})  # No padding on x-axis
 
-####################
-#   Single layer   #
-####################
+##############################
+#   General plot functions   #
+###############################
 
 
 def plot_series_cmap(
@@ -71,6 +71,21 @@ def join_axes_with_shared_x(ax1: Axes, ax2: Axes):
     ax2.set_position([pos2.x0, pos1.y0 - pos2.height, pos2.width, pos2.height])
     plt.setp(ax1.get_xticklabels(), visible=False)
     return ax1, ax2
+
+
+def get_contour(
+    x_mesh: np.ndarray, y_mesh: np.ndarray, z_mesh: np.ndarray, value: np.float64
+):
+    contours = measure.find_contours(z_mesh, value)
+    contour = contours[0]
+    x_scale = 1 / x_mesh.shape[1] * x_mesh.max()
+    y_scale = 1 / y_mesh.shape[1] * y_mesh.max()
+    return contour[:, 1] * x_scale, contour[:, 0] * y_scale
+
+
+####################
+#   Single layer   #
+####################
 
 
 def plot_for_lambda(_lambda):
@@ -342,16 +357,6 @@ def plot_critical_current(layers_str: str, tunneling: float):
     cbar.set_ticklabels([f"{t:.1f}" for t in tick_values])
 
     return fig
-
-
-def get_contour(
-    x_mesh: np.ndarray, y_mesh: np.ndarray, z_mesh: np.ndarray, value: np.float64
-):
-    contours = measure.find_contours(z_mesh, value)
-    contour = contours[0]
-    x_scale = 1 / x_mesh.shape[1] * x_mesh.max()
-    y_scale = 1 / y_mesh.shape[1] * y_mesh.max()
-    return contour[:, 1] * x_scale, contour[:, 0] * y_scale
 
 
 def plot_critical_current_diff_tunneling():
