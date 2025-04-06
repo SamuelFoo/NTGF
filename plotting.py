@@ -1,4 +1,5 @@
 import sqlite3
+from pathlib import Path
 from typing import Callable, List, Tuple
 
 import matplotlib
@@ -24,6 +25,14 @@ FIGURE_SIZE = (8, 4)
 font = {"size": 12}
 matplotlib.rc("font", **font)
 matplotlib.rc("axes", **{"xmargin": 0})  # No padding on x-axis
+
+PRESENTATION_MEDIA_DIR = Path("presentation_media")
+PRESENTATION_MEDIA_DIR.mkdir(exist_ok=True)
+
+REPORT_MEDIA_DIR = PRESENTATION_MEDIA_DIR / "report"
+REPORT_MEDIA_DIR.mkdir(exist_ok=True)
+SLIDES_MEDIA_DIR = PRESENTATION_MEDIA_DIR / "slides"
+SLIDES_MEDIA_DIR.mkdir(exist_ok=True)
 
 ##############################
 #   General plot functions   #
@@ -194,12 +203,19 @@ def plot_residual_phase(
     return cbar
 
 
-def plot_residual_phase_stability(
-    ax: Axes,
+def get_residual_phase_stability(
     Delta_mesh_mev: NDArray,
     h_mesh_mev: NDArray,
     residual_mesh_mev: NDArray,
 ):
+    """Get the residual phase stability from the residual mesh.
+    Args:
+        Delta_mesh_mev (NDArray): Delta mesh in meV.
+        h_mesh_mev (NDArray): h mesh in meV.
+        residual_mesh_mev (NDArray): Residual mesh in meV.
+    Returns:
+        Stable and unstable zeros of the self-consistency equation.
+    """
     zeros_x, zeros_y = get_contour(Delta_mesh_mev, h_mesh_mev, residual_mesh_mev, 0.0)
 
     # Remove ill-defined points at x = 0
@@ -218,14 +234,23 @@ def plot_residual_phase_stability(
     midpoint = neg_grad_idxs[
         np.argmax(np.diff(neg_grad_idxs) > 0.9 * len(neg_grad_idxs))
     ]
-    ax.plot(zeros_x[midpoint:], zeros_y[midpoint:], color="k", label="Stable")
-    ax.plot(
-        zeros_x[: midpoint + 1],
-        zeros_y[: midpoint + 1],
-        color="k",
-        linestyle="--",
-        label="Unstable",
+    stable_zeros = (zeros_x[midpoint:], zeros_y[midpoint:])
+    unstable_zeros = (zeros_x[: midpoint + 1], zeros_y[: midpoint + 1])
+    return stable_zeros, unstable_zeros
+
+
+def plot_residual_phase_stability(
+    ax: Axes,
+    Delta_mesh_mev: NDArray,
+    h_mesh_mev: NDArray,
+    residual_mesh_mev: NDArray,
+):
+    stable_zeros, unstable_zeros = get_residual_phase_stability(
+        Delta_mesh_mev, h_mesh_mev, residual_mesh_mev
     )
+
+    ax.plot(*stable_zeros, color="k", label="Stable")
+    ax.plot(*unstable_zeros, color="k", linestyle="--", label="Unstable")
     ax.legend()
 
 
@@ -234,24 +259,45 @@ def plot_residual_phase_stability(
 ################
 
 
-def get_current_angle_subplot(ax: Axes, layers_str: str, tunneling: float):
+def get_current_angle_data(layers_str: str, tunneling: float):
+    """Get the current angle data from the database.
+
+    Args:
+        layers_str (str): String representation of the layers. E.g., "S1_N_S2"
+        tunneling (float): Tunneling parameter.
+
+    Returns:
+        df: DataFrame with columns:
+            - temperature (in Kelvin)
+            - tunneling (in meV)
+            - jc (critical current density in A/m^2)
+            - phase (in rad)
+    """
     db_name = f"{layers_str}_current.db"
     conn = sqlite3.connect(DATA_DIR / "current" / db_name)
     query = f"SELECT temperature, tunneling, jc, phase FROM current WHERE tunneling = {tunneling}"
     df = pd.read_sql_query(query, conn)
+    df["temperature"] = df["temperature"] / kB
+    df["jc"] = df["jc"] / 1e6
+
+    return df
+
+
+def get_current_angle_subplot(ax: Axes, layers_str: str, tunneling: float):
+    df = get_current_angle_data(layers_str, tunneling)
 
     plot_tuples = []
     temperatures = []
     for i, temperature in enumerate(df["temperature"].unique()):
         subset = df[df["temperature"] == temperature]
-        plot_tuples.append((subset["phase"], subset["jc"] / 1e6))
-        temperatures.append(temperature / kB)
+        plot_tuples.append((subset["phase"], subset["jc"]))
+        temperatures.append(temperature)
 
     sc = plot_series_cmap_log_scale(
         ax, ax.plot, plot_tuples, temperatures, min(temperatures), max(temperatures)
     )
 
-    ax.set_xlabel("Phase (rad)")
+    ax.set_xlabel(r"$\phi$ (rad)")
     ax.set_ylabel(r"$j$ $(M A\ m^{-2})$")
     ax.set_xlim(-np.pi, np.pi)
 
@@ -318,7 +364,7 @@ def get_critical_phase_subplot(ax: Axes, layers_str: str, tunneling: float):
     ax.plot(df["temperature"], df["phase"], color="k")
 
     ax.set_xlabel(r"Temperature $(K)$")
-    ax.set_ylabel("Phase (rad)")
+    ax.set_ylabel(r"$\phi_c$ (rad)")
     ax.set_xlim(0, 12)
     y_ticks = [0, np.pi / 2, np.pi]
     ax.set_yticks(y_ticks)
@@ -359,12 +405,11 @@ def plot_critical_current(layers_str: str, tunneling: float):
     return fig
 
 
-def plot_critical_current_diff_tunneling():
+def plot_current_diff_tunneling():
     fig = plt.figure(figsize=(FIGURE_SIZE[0], FIGURE_SIZE[1] * 2))
 
-    ax1 = fig.add_subplot(211)
-
-    for t in np.array([0.25, 0.5, 1]) * 1e-3:
+    ax1 = fig.add_subplot(221)
+    for t in np.array([0.5, 1, 2]) * 1e-3:
         df = get_critical_current_data("S1_N_S2", t)
         ax1.plot(df["temperature"], df["jc"], label=f"$t = {t * 1e3:.2f}$ meV")
 
@@ -379,13 +424,12 @@ def plot_critical_current_diff_tunneling():
         df = get_critical_current_data("S1_N_S2", t)
         series_list.append((df["temperature"], df["jc"] / max(df["jc"])))
 
-    ax2 = fig.add_subplot(212, sharex=ax1)
+    ax2 = fig.add_subplot(223, sharex=ax1)
     join_axes_with_shared_x(ax1, ax2)
 
     ax2.set_xlabel("Temperature (K)")
-    ax2.set_ylabel(r"$j_c / \max(j_c)$")
+    ax2.set_ylabel(r"$j_c / j_{c0}$")
     ax2.set_ylim(0, 1)
-
     sc = plot_series_cmap_log_scale(
         ax=ax2,
         plot_fn=ax2.plot,
@@ -394,5 +438,76 @@ def plot_critical_current_diff_tunneling():
         cmap_min=min(tunneling_params),
         cmap_max=max(tunneling_params),
     )
-    cbar = plt.colorbar(sc, ax=[ax1, ax2])
+
+    second_col_offset = 0.08
+
+    ax3 = fig.add_subplot(222)
+    pos3 = ax3.get_position()
+    ax3.set_position([pos3.x0 + second_col_offset, pos3.y0, pos3.width, pos3.height])
+    for t in np.array([0.5, 1, 2]) * 1e-3:
+        df = get_current_angle_data("S1_N_S2", t)
+        df = df[df["temperature"] == df["temperature"].min()]
+        ax3.plot(
+            df["phase"], df["jc"] / df["jc"].max(), label=f"$t = {t * 1e3:.2f}$ meV"
+        )
+    ax3.set_xlabel(r"$\phi$ (rad)")
+    x_ticks = [-np.pi, 0, np.pi]
+    ax3.set_xticks(x_ticks)
+    ax3.set_xticklabels([r"$-\pi$", r"$0$", r"$\pi$"])
+    ax3.set_ylabel(r"$j / j_0$")
+    ax3.legend()
+
+    ax4 = fig.add_subplot(224)
+    pos4 = ax4.get_position()
+    ax4.set_position([pos4.x0 + second_col_offset, pos4.y0, pos4.width, pos4.height])
+    critical_phases = []
+    for t in tunneling_params:
+        df = get_critical_current_data("S1_N_S2", t)
+        critical_phases.append(df["phase"].max())
+
+    series_list = list(
+        zip(tunneling_params[:, np.newaxis], np.array(critical_phases)[:, np.newaxis])
+    )
+    plot_series_cmap_log_scale(
+        ax=ax4,
+        plot_fn=ax4.scatter,
+        series_list=series_list,
+        series_cmap_values=tunneling_params,
+        cmap_min=min(tunneling_params),
+        cmap_max=max(tunneling_params),
+    )
+    ax4.plot(tunneling_params, critical_phases, color="k", zorder=-1)
+
+    ax4.axhline(y=np.pi / 2, color="gray", linestyle="--")
+    y_ticks = [0, np.pi / 2, np.pi]
+    ax4.set_yticks(y_ticks)
+    ax4.set_yticklabels([r"$0$", r"$\pi/2$", r"$\pi$"])
+    ax4.set_xlabel(r"$t$ (meV)")
+    ax4.set_ylabel(r"$\phi_{c0}$ (rad)")
+    ax4.set_xscale("log")
+
+    pos1 = ax1.get_position()
+    pos2 = ax2.get_position()
+    pos4 = ax4.get_position()
+    gap_at_bottom = pos2.y0 - pos4.y0
+    ax1.set_position(
+        [
+            pos1.x0,
+            pos1.y0 - gap_at_bottom / 2,
+            pos1.width,
+            pos1.height + gap_at_bottom / 2,
+        ]
+    )
+    ax2.set_position(
+        [pos2.x0, pos2.y0 - gap_at_bottom, pos2.width, pos2.height + gap_at_bottom / 2]
+    )
+
+    # Add labels to the plots
+    ax1.text(0.10, 0.95, "(a)", transform=ax1.transAxes, va="top", ha="center")
+    ax2.text(0.90, 0.95, "(b)", transform=ax2.transAxes, va="top", ha="center")
+    ax3.text(0.10, 0.95, "(c)", transform=ax3.transAxes, va="top", ha="center")
+    ax4.text(0.10, 0.95, "(d)", transform=ax4.transAxes, va="top", ha="center")
+
+    cbar = plt.colorbar(sc, ax=[ax1, ax2, ax3, ax4])
     cbar.set_label(r"$t$ (meV)")
+    return fig

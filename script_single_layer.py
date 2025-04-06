@@ -16,9 +16,6 @@ from GKTH.self_consistency_delta import (
 DATA_DIR = Path("data")
 DATA_DIR.mkdir(exist_ok=True)
 
-PRESENTATION_MEDIA_DIR = Path("presentation_media")
-PRESENTATION_MEDIA_DIR.mkdir(exist_ok=True)
-
 
 def read_residual_delta_database(query: tuple):
     # Connect to the database
