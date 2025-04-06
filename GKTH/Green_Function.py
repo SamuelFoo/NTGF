@@ -130,16 +130,14 @@ def GKTH_Greens(
 
     def calculate_ksum(
         n,
-        nlayers,
+        nlayers: int,
         npointscalc,
         base_m,
         imaginary_identity_m,
         compute_idxs,
         D_factors,
         overall_multiplier_flat,
-        random_sampling_max,
-        p,
-        verbose,
+        p: GlobalParams,
         normalisation_factor,
     ):
         Fs_ksum = np.zeros(nlayers)
@@ -148,21 +146,12 @@ def GKTH_Greens(
         Fupdowns = np.zeros((nlayers, npointscalc))
         Fdownups = np.zeros((nlayers, npointscalc))
 
-        idx_samps = compute_idxs[:, 0] + np.round(
-            random_sampling_max * np.random.rand(npointscalc)
-        ).astype(int)
-        +p.nkpoints * np.round(
-            random_sampling_max * np.random.rand(npointscalc)
-        ).astype(int)
-
         for i in range(npointscalc):
-            idx_samp = idx_samps[i]
             m_inv = np.linalg.inv(
                 -base_m[:, :, compute_idxs[i, 0], compute_idxs[i, 1]] + ws
             )
             for j in range(nlayers):
                 # Extract Fupdown and Fdownup for each layer
-                # print(m_inv[4 * j, 4 * j + 3], m_inv[4 * j + 1, 4 * j + 2])
                 Fupdowns[j, i] = (
                     m_inv[4 * j, 4 * j + 3]
                     * D_factors[compute_idxs[i, 0], compute_idxs[i, 1], j]
@@ -178,13 +167,6 @@ def GKTH_Greens(
                 overall_multiplier_flat * (Fupdowns[layer, :] - Fdownups[layer, :])
             )
 
-            # Store verbose data if required
-            if verbose:
-                F_kresolved = Fupdowns[layer, :] - Fdownups[layer, :]
-                matsubara_freqs_unsrt = (
-                    n  # Track the current Matsubara frequency for later sorting
-                )
-        # print(Fs_ksum)
         return Fs_ksum
 
     nlayers = len(layers)
@@ -207,7 +189,6 @@ def GKTH_Greens(
     # Flatten the 2D arrays for linear indexing
     compute_idxs = np.transpose(np.nonzero(compute_grid == 1))
     npointscalc = len(compute_idxs)
-    random_sampling_max = density_grid[compute_idxs[:, 0], compute_idxs[:, 1]] - 1
 
     # Symmetry multiplier
     if p.lattice_symmetry == "4mm":
@@ -252,9 +233,7 @@ def GKTH_Greens(
             compute_idxs,
             D_factors,
             overall_multiplier_flat,
-            random_sampling_max,
             p,
-            verbose,
             normalisation_factor,
         )
 
@@ -301,9 +280,7 @@ def GKTH_Greens(
             compute_idxs,
             D_factors,
             overall_multiplier_flat,
-            random_sampling_max,
             p,
-            verbose,
             normalisation_factor,
         )
         ksums = np.insert(ksums, mats_idx + 1, new_ksum, axis=0)
