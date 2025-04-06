@@ -83,12 +83,7 @@ def get_single_layer_parameters(h: float):
 
 
 def run_residuals_phase(_lambda: float, h_end: float, max_Delta: float, N: int):
-    Delta_lin = np.round(np.linspace(0.00, max_Delta, N), 9)
-    h_lin = np.round(np.linspace(0.00, h_end, N), 9)
-
-    Delta_mesh, h_mesh = np.meshgrid(Delta_lin, h_lin)
-
-    for Delta, h in zip(Delta_mesh.flatten(), h_mesh.flatten()):
+    def func(Delta, h):
         # Connect to database
         conn = sqlite3.connect(DATA_DIR / "residuals.db")
         c = conn.cursor()
@@ -106,9 +101,12 @@ def run_residuals_phase(_lambda: float, h_end: float, max_Delta: float, N: int):
         if query is not None:
             residual = query[3]
             print(f"Delta: {Delta}, h: {h}, residual: {residual}")
-            continue
+            return
 
         # Get result
+        print(
+            f"Starting run_residuals_phase, lambda: {_lambda}, Delta: {Delta}, h: {h}"
+        )
         p = get_single_layer_parameters(h)
         layers = get_single_layer_list(_lambda)
 
@@ -121,7 +119,19 @@ def run_residuals_phase(_lambda: float, h_end: float, max_Delta: float, N: int):
         conn.commit()
         conn.close()
 
-        print(f"Delta: {Delta}, h: {h}, residual: {residual}")
+        print(
+            f"Finished run_residuals_phase, lambda: {_lambda}, Delta: {Delta}, h: {h}, residual: {residual}"
+        )
+
+    Delta_lin = np.round(np.linspace(0.00, max_Delta, N), 9)
+    h_lin = np.round(np.linspace(0.00, h_end, N), 9)
+
+    Delta_mesh, h_mesh = np.meshgrid(Delta_lin, h_lin)
+
+    Parallel(n_jobs=-1)(
+        delayed(func)(Delta, h)
+        for Delta, h in zip(Delta_mesh.flatten(), h_mesh.flatten())
+    )
 
 
 def get_residuals(_lambda, Delta_list, h_list):
@@ -188,6 +198,7 @@ def run_for_lambda(_lambda, h_end=1e-3, delta_end=2e-3):
         if c.fetchone():
             continue
 
+        print(f"Calculating for lambda: {_lambda}, h: {h}")
         layers = get_single_layer_list(_lambda)
 
         # See how residuals vary with Delta to check find root
@@ -239,15 +250,21 @@ if __name__ == "__main__":
     max_Delta_list = np.append(max_Delta_list, [2e-3, 2e-2, 50e-3])
 
     def lambda_fn(i):
-        drop_lambda(lambda_list[i])
         run_for_lambda(lambda_list[i], h_end=h_end_list[i], delta_end=max_Delta_list[i])
 
-    result = Parallel(n_jobs=-1)(delayed(lambda_fn)(i) for i in range(len(lambda_list)))
+    # result = Parallel(n_jobs=-1)(delayed(lambda_fn)(i) for i in range(len(lambda_list)))
 
-    lambda_list = [0.1, 0.15, 0.2]
-    h_end_list = [1e-3, 2e-2, 5e-2]
-    max_Delta_list = [2e-3, 2e-2, 50e-3]
+    tuple_list = [
+        (0.1, 1e-3, 2e-3),
+        (0.11, 5e-3, 5e-3),
+        (0.13, 1e-2, 1e-2),
+        (0.15, 2e-2, 2e-2),
+        (0.20, 5e-2, 5e-2),
+    ]
+    # lambda_list = [0.1, 0.11, 0.12, 0.13, 0.14, 0.15, 0.16, 0.17, 0.18, 0.19, 0.2]
+    # h_end_list = [1e-3, 5e-3, 5e-3, 1e-2, 2e-2, 2e-2, 3e-2, 3e-2, 4e-2, 4e-2, 5e-2]
+    # max_Delta_list = [2e-3, 5e-3, 5e-3, 1e-2, 2e-2, 50e-3]
     N = 41
 
-    for _lambda, h_end, max_Delta in zip(lambda_list, h_end_list, max_Delta_list):
+    for _lambda, h_end, max_Delta in tuple_list:
         run_residuals_phase(_lambda, h_end=h_end, max_Delta=max_Delta, N=N)
