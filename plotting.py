@@ -1,5 +1,5 @@
 import sqlite3
-from typing import Callable
+from typing import Callable, List, Tuple
 
 import matplotlib
 import matplotlib.pyplot as plt
@@ -25,9 +25,18 @@ font = {"size": 12}
 matplotlib.rc("font", **font)
 matplotlib.rc("axes", **{"xmargin": 0})  # No padding on x-axis
 
+####################
+#   Single layer   #
+####################
+
 
 def plot_series_cmap(
-    ax: Axes, plot_fn: Callable, series_list, series_cmap_values, cmap_min, cmap_max
+    ax: Axes,
+    plot_fn: Callable,
+    series_list: List[Tuple],
+    series_cmap_values: List[float],
+    cmap_min: float,
+    cmap_max: float,
 ):
     for series, series_cmap_value in zip(series_list, series_cmap_values):
         color = plt.cm.copper((series_cmap_value - cmap_min) / (cmap_max - cmap_min))
@@ -53,6 +62,15 @@ def plot_series_cmap_log_scale(
     plot_norm = LogNorm(vmin=max(cmap_min, 1e-10), vmax=cmap_max)
     sc = ax.scatter([], [], c=[], cmap="copper", norm=plot_norm)
     return sc
+
+
+def join_axes_with_shared_x(ax1: Axes, ax2: Axes):
+    """Join two axes with a shared x-axis."""
+    pos1 = ax1.get_position()
+    pos2 = ax2.get_position()
+    ax2.set_position([pos2.x0, pos1.y0 - pos2.height, pos2.width, pos2.height])
+    plt.setp(ax1.get_xticklabels(), visible=False)
+    return ax1, ax2
 
 
 def plot_for_lambda(_lambda):
@@ -134,6 +152,71 @@ def plot_for_lambda_h_list(_lambda, h_list):
     ax.set_title(rf"$\lambda = {_lambda}$")
     ax.legend()
     return fig
+
+
+def plot_residual_phase(
+    fig: Figure,
+    ax: Axes,
+    Delta_mesh_mev: NDArray,
+    h_mesh_mev: NDArray,
+    residual_mesh_mev: NDArray,
+):
+    bound = np.abs((residual_mesh_mev).max())
+    normalize = Normalize(vmin=-bound, vmax=bound)
+
+    ax.set_xlabel(r"$\Delta_0$ (meV)")
+    ax.set_ylabel("h (meV)")
+
+    sc = ax.contourf(
+        Delta_mesh_mev,
+        h_mesh_mev,
+        residual_mesh_mev,
+        cmap="bwr",
+        norm=normalize,
+        levels=100,
+    )
+    cbar = fig.colorbar(sc, label=r"$\delta \Delta$ (meV)")
+    return cbar
+
+
+def plot_residual_phase_stability(
+    ax: Axes,
+    Delta_mesh_mev: NDArray,
+    h_mesh_mev: NDArray,
+    residual_mesh_mev: NDArray,
+):
+    zeros_x, zeros_y = get_contour(Delta_mesh_mev, h_mesh_mev, residual_mesh_mev, 0.0)
+
+    # Remove ill-defined points at x = 0
+    zeros_y = zeros_y[zeros_x != 0]
+    zeros_x = zeros_x[zeros_x != 0]
+
+    # Sort by x coord
+    sort_idxs = np.argsort(zeros_x)
+    zeros_x = zeros_x[sort_idxs]
+    zeros_y = zeros_y[sort_idxs]
+
+    zeros_grad = np.gradient(zeros_y, zeros_x)
+    (neg_grad_idxs,) = np.where(zeros_grad <= 0)
+
+    # Midpoint idx is the first index such that more than 90% of subsequent gradients are negative
+    midpoint = neg_grad_idxs[
+        np.argmax(np.diff(neg_grad_idxs) > 0.9 * len(neg_grad_idxs))
+    ]
+    ax.plot(zeros_x[midpoint:], zeros_y[midpoint:], color="k", label="Stable")
+    ax.plot(
+        zeros_x[: midpoint + 1],
+        zeros_y[: midpoint + 1],
+        color="k",
+        linestyle="--",
+        label="Unstable",
+    )
+    ax.legend()
+
+
+################
+#   Junction   #
+################
 
 
 def get_current_angle_subplot(ax: Axes, layers_str: str, tunneling: float):
@@ -234,10 +317,9 @@ def plot_critical_current(layers_str: str, tunneling: float):
     ax2 = fig.add_subplot(312)
     ax3 = fig.add_subplot(313, sharex=ax2)
 
+    join_axes_with_shared_x(ax2, ax3)
+
     pos1 = ax1.get_position()
-    pos2 = ax2.get_position()
-    pos3 = ax3.get_position()
-    ax3.set_position([pos3.x0, pos2.y0 - pos3.height, pos3.width, pos3.height])
     ax1.set_position([pos1.x0, pos1.y0 + 0.04, pos1.width, pos1.height])
     plt.setp(ax2.get_xticklabels(), visible=False)
 
@@ -272,62 +354,40 @@ def get_contour(
     return contour[:, 1] * x_scale, contour[:, 0] * y_scale
 
 
-def plot_residual_phase(
-    fig: Figure,
-    ax: Axes,
-    _lambda: float,
-    Delta_mesh_mev: NDArray,
-    h_mesh_mev: NDArray,
-    residual_mesh_mev: NDArray,
-):
-    bound = np.abs((residual_mesh_mev).max())
-    normalize = Normalize(vmin=-bound, vmax=bound)
+def plot_critical_current_diff_tunneling():
+    fig = plt.figure(figsize=(FIGURE_SIZE[0], FIGURE_SIZE[1] * 2))
 
-    ax.set_xlabel(r"$\Delta_0$ (meV)")
-    ax.set_ylabel("h (meV)")
+    ax1 = fig.add_subplot(211)
 
-    sc = ax.contourf(
-        Delta_mesh_mev,
-        h_mesh_mev,
-        residual_mesh_mev,
-        cmap="bwr",
-        norm=normalize,
-        levels=100,
+    for t in np.array([0.25, 0.5, 1]) * 1e-3:
+        df = get_critical_current_data("S1_N_S2", t)
+        ax1.plot(df["temperature"], df["jc"], label=f"$t = {t * 1e3:.2f}$ meV")
+
+    ax1.legend()
+    ax1.set_xlim(0, 12)
+    ax1.set_ylim(0, None)
+    ax1.set_ylabel(r"$j_c$ $(M A\ m^{-2})$")
+
+    series_list = []
+    tunneling_params = np.array([0.1, 0.25, 0.5, 1, 2, 5, 10]) * 1e-3
+    for t in tunneling_params:
+        df = get_critical_current_data("S1_N_S2", t)
+        series_list.append((df["temperature"], df["jc"] / max(df["jc"])))
+
+    ax2 = fig.add_subplot(212, sharex=ax1)
+    join_axes_with_shared_x(ax1, ax2)
+
+    ax2.set_xlabel("Temperature (K)")
+    ax2.set_ylabel(r"$j_c / \max(j_c)$")
+    ax2.set_ylim(0, 1)
+
+    sc = plot_series_cmap_log_scale(
+        ax=ax2,
+        plot_fn=ax2.plot,
+        series_list=series_list,
+        series_cmap_values=tunneling_params,
+        cmap_min=min(tunneling_params),
+        cmap_max=max(tunneling_params),
     )
-    cbar = fig.colorbar(sc, label=r"$\delta \Delta$ (meV)")
-    return cbar
-
-
-def plot_residual_phase_stability(
-    ax: Axes,
-    Delta_mesh_mev: NDArray,
-    h_mesh_mev: NDArray,
-    residual_mesh_mev: NDArray,
-):
-    zeros_x, zeros_y = get_contour(Delta_mesh_mev, h_mesh_mev, residual_mesh_mev, 0.0)
-
-    # Remove ill-defined points at x = 0
-    zeros_y = zeros_y[zeros_x != 0]
-    zeros_x = zeros_x[zeros_x != 0]
-
-    # Sort by x coord
-    sort_idxs = np.argsort(zeros_x)
-    zeros_x = zeros_x[sort_idxs]
-    zeros_y = zeros_y[sort_idxs]
-
-    zeros_grad = np.gradient(zeros_y, zeros_x)
-    (neg_grad_idxs,) = np.where(zeros_grad <= 0)
-
-    # Midpoint idx is the first index such that more than 90% of subsequent gradients are negative
-    midpoint = neg_grad_idxs[
-        np.argmax(np.diff(neg_grad_idxs) > 0.9 * len(neg_grad_idxs))
-    ]
-    ax.plot(zeros_x[midpoint:], zeros_y[midpoint:], color="k", label="Stable")
-    ax.plot(
-        zeros_x[: midpoint + 1],
-        zeros_y[: midpoint + 1],
-        color="k",
-        linestyle="--",
-        label="Unstable",
-    )
-    ax.legend()
+    cbar = plt.colorbar(sc, ax=[ax1, ax2])
+    cbar.set_label(r"$t$ (meV)")
