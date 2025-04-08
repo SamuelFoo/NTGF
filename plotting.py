@@ -11,12 +11,14 @@ from matplotlib.axes import Axes
 from matplotlib.colors import LogNorm, Normalize
 from matplotlib.figure import Figure
 from numpy.typing import NDArray
+from scipy.interpolate import interp1d
 from skimage import measure
 
 from GKTH.constants import kB
 from script_single_layer import (
     DATA_DIR,
     get_delta_vs_h,
+    get_residuals_phase,
     read_residual_delta_database,
     read_residuals_delta_database_mev,
 )
@@ -47,13 +49,17 @@ def plot_series_cmap(
     series_cmap_values: List[float],
     cmap_min: float,
     cmap_max: float,
+    cmap: str = "copper",
 ):
+
     for series, series_cmap_value in zip(series_list, series_cmap_values):
-        color = plt.cm.copper((series_cmap_value - cmap_min) / (cmap_max - cmap_min))
+        color = plt.get_cmap(cmap)(
+            (series_cmap_value - cmap_min) / (cmap_max - cmap_min)
+        )
         x, y = series
         plot_fn(x, y, color=color)
 
-    sc = ax.scatter([], [], c=[], cmap="copper", vmin=cmap_min, vmax=cmap_max)
+    sc = ax.scatter([], [], c=[], cmap=cmap, vmin=cmap_min, vmax=cmap_max)
     return sc
 
 
@@ -92,7 +98,8 @@ def get_contour(
     y_scale = 1 / y_mesh.shape[1] * y_mesh.max()
     return contour[:, 1] * x_scale, contour[:, 0] * y_scale
 
-def move_axes(ax: Axes, x:float, y:float):
+
+def move_axes(ax: Axes, x: float, y: float):
     pos = ax.get_position()
     ax.set_position([pos.x0 + x, pos.y0 + y, pos.width, pos.height])
 
@@ -457,6 +464,154 @@ def plot_residual_phase_stability(
     ax.plot(*stable_zeros, color="k", label="Stable")
     ax.plot(*unstable_zeros, color="k", linestyle="--", label="Unstable")
     ax.legend()
+
+
+def plot_residual_phase_stability_report():
+    def get_zeroes():
+        tuple_list = [
+            (0.1, 1e-3, 2e-3),
+            (0.11, 5e-3, 5e-3),
+            (0.12, 5e-3, 5e-3),
+            (0.13, 1e-2, 1e-2),
+            (0.14, 2e-2, 2e-2),
+            (0.15, 2e-2, 2e-2),
+            (0.16, 3e-2, 3e-2),
+            (0.17, 3e-2, 3e-2),
+            (0.18, 4e-2, 4e-2),
+            (0.19, 4e-2, 4e-2),
+            (0.20, 5e-2, 5e-2),
+        ]
+        tuple_list = np.array(tuple_list)
+        N = 41
+
+        stable_zeroes_list = []
+        unstable_zeroes_list = []
+
+        for i, (_lambda, h_end, max_Delta) in enumerate(tuple_list):
+            Delta_mesh_mev, h_mesh_mev, residual_mesh_mev = get_residuals_phase(
+                _lambda, max_Delta, h_end, N
+            )
+            stable_zeros, unstable_zeros = get_residual_phase_stability(
+                Delta_mesh_mev, h_mesh_mev, residual_mesh_mev
+            )
+
+            stable_zeros = np.array(stable_zeros)
+            unstable_zeros = np.array(unstable_zeros)
+            max_values = np.concatenate(
+                [
+                    stable_zeros.max(axis=1, keepdims=True),
+                    unstable_zeros.max(axis=1, keepdims=True),
+                ],
+                axis=1,
+            )
+            max_val_kx = max_values.max(axis=1, keepdims=True)
+            stable_zeros /= max_val_kx
+            unstable_zeros /= max_val_kx
+
+            stable_zeroes_list.append(stable_zeros)
+            unstable_zeroes_list.append(unstable_zeros)
+
+        return tuple_list, stable_zeroes_list, unstable_zeroes_list
+
+    tuple_list, stable_zeroes_list, unstable_zeroes_list = get_zeroes()
+    _lambdas = tuple_list[:, 0]
+    cmap = "copper"
+
+    fig = plt.figure(
+        figsize=(FIGURE_SIZE[0], FIGURE_SIZE[1] * 3),
+    )
+
+    # Top plot
+    ax1 = fig.add_subplot(311)
+    sc = plot_series_cmap(
+        ax=ax1,
+        plot_fn=ax1.plot,
+        series_list=stable_zeroes_list,
+        series_cmap_values=_lambdas,
+        cmap_min=min(_lambdas),
+        cmap_max=max(_lambdas),
+        cmap=cmap,
+    )
+    plot_series_cmap(
+        ax=ax1,
+        plot_fn=lambda *args, **kwargs: ax1.plot(*args, linestyle="--", **kwargs),
+        series_list=unstable_zeroes_list,
+        series_cmap_values=_lambdas,
+        cmap_min=min(_lambdas),
+        cmap_max=max(_lambdas),
+        cmap=cmap,
+    )
+
+    ax1.set_xlim(0, 1.05)
+    ax1.set_ylim(0, 1.05)
+    ax1.set_xlabel(r"$\Delta_0/\max(\Delta_0)$")
+    ax1.set_ylabel(r"$h/\max(h)$")
+
+    # Middle plot
+    Delta_sample = 0.2
+    h_samples = []
+    _lambda_samples = []
+    for _lambda, stable_zeroes in zip(_lambdas, unstable_zeroes_list):
+        x, y = stable_zeroes
+        if Delta_sample < x.min() or Delta_sample > y.max():
+            continue
+
+        interp1d_func = interp1d(x, y)
+        h_sample = interp1d_func(Delta_sample)
+        h_samples.append(h_sample)
+        _lambda_samples.append(_lambda)
+
+    ax2 = fig.add_subplot(312)
+    ax2.plot(_lambda_samples, h_samples, zorder=-1, color="k")
+    ax2.set_ylabel(r"$h/\max(h)$")
+
+    plot_series_cmap(
+        ax=ax2,
+        plot_fn=ax2.scatter,
+        series_list=list(zip(_lambda_samples, h_samples)),
+        series_cmap_values=_lambda_samples,
+        cmap_min=min(_lambdas),
+        cmap_max=max(_lambdas),
+        cmap=cmap,
+    )
+
+    ax1.scatter([0.2] * len(_lambda_samples), h_samples, color="k", zorder=100, s=15)
+    ax1.axvline(0.2, color="k", zorder=99)
+
+    # Bottom plot
+    ax3 = fig.add_subplot(313)
+
+    critical_pts = []
+    for unstable_zeroes in unstable_zeroes_list:
+        x, y = unstable_zeroes
+        max_idx = np.argmax(x)
+        critical_pts.append((x[max_idx], y[max_idx]))
+
+    series_list = [
+        ([_lambda], [Delta_c]) for _lambda, (Delta_c, _) in zip(_lambdas, critical_pts)
+    ]
+    ax3.plot(_lambdas, [pt[0] for pt in critical_pts], zorder=-1, color="k")
+    plot_series_cmap(
+        ax3, ax3.scatter, series_list, _lambdas, min(_lambdas), max(_lambdas), cmap=cmap
+    )
+    ax3.set_xlabel(r"$\lambda$ (meV)")
+    ax3.set_ylabel(r"$\Delta_c$ (meV)")
+
+    for _lambda, (Delta_c, h_c) in zip(_lambdas, critical_pts):
+        ax1.plot(
+            [Delta_c, Delta_c], [0, h_c], linestyle="--", color="lightgray", zorder=-1
+        )
+
+    fig.subplots_adjust(hspace=0.4)
+    join_axes_with_shared_x(ax2, ax3)
+
+    ax1.text(0.05, 0.10, "(a)", transform=ax1.transAxes, va="center", ha="center")
+    ax2.text(0.95, 0.90, "(b)", transform=ax2.transAxes, va="center", ha="center")
+    ax3.text(0.05, 0.90, "(c)", transform=ax3.transAxes, va="center", ha="center")
+
+    fig.colorbar(sc, ax=[ax1, ax2, ax3], label=r"$\lambda$ (meV)")
+
+    return fig
 
 
 ################

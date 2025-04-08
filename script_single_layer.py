@@ -137,18 +137,23 @@ def run_residuals_phase(_lambda: float, h_end: float, max_Delta: float, N: int):
 def get_residuals(_lambda, Delta_list, h_list):
     residual_list = []
 
-    for Delta, h in zip(Delta_list, h_list):
-        conn = sqlite3.connect(DATA_DIR / "residuals.db")
-        c = conn.cursor()
+    conn = sqlite3.connect(DATA_DIR / "residuals.db")
+    c = conn.cursor()
 
-        c.execute(
-            f"SELECT * FROM residuals WHERE lambda={_lambda} AND Delta={Delta} AND h={h}"
-        )
-        query = c.fetchone()
-        residual = query[3]
+    # Use a single query to fetch all residuals at once
+    placeholders = ", ".join(["?"] * len(Delta_list))
+    query = f"SELECT Delta, h, residual FROM residuals WHERE lambda=? AND Delta IN ({placeholders}) AND h IN ({placeholders})"
+    params = [_lambda] + list(Delta_list) + list(h_list)
+    c.execute(query, params)
+
+    # Create a dictionary for quick lookup
+    residual_dict = {(row[0], row[1]): row[2] for row in c.fetchall()}
+
+    for Delta, h in zip(Delta_list, h_list):
+        residual = residual_dict.get((Delta, h), None)
         residual_list.append(residual)
 
-        conn.close()
+    conn.close()
 
     return residual_list
 
@@ -254,16 +259,20 @@ if __name__ == "__main__":
 
     # result = Parallel(n_jobs=-1)(delayed(lambda_fn)(i) for i in range(len(lambda_list)))
 
+    # (_lambda, h_end, max_Delta)
     tuple_list = [
         (0.1, 1e-3, 2e-3),
         (0.11, 5e-3, 5e-3),
+        (0.12, 5e-3, 5e-3),
         (0.13, 1e-2, 1e-2),
+        (0.14, 2e-2, 2e-2),
         (0.15, 2e-2, 2e-2),
+        (0.16, 3e-2, 3e-2),
+        (0.17, 3e-2, 3e-2),
+        (0.18, 4e-2, 4e-2),
+        (0.19, 4e-2, 4e-2),
         (0.20, 5e-2, 5e-2),
     ]
-    # lambda_list = [0.1, 0.11, 0.12, 0.13, 0.14, 0.15, 0.16, 0.17, 0.18, 0.19, 0.2]
-    # h_end_list = [1e-3, 5e-3, 5e-3, 1e-2, 2e-2, 2e-2, 3e-2, 3e-2, 4e-2, 4e-2, 5e-2]
-    # max_Delta_list = [2e-3, 5e-3, 5e-3, 1e-2, 2e-2, 50e-3]
     N = 41
 
     for _lambda, h_end, max_Delta in tuple_list:
