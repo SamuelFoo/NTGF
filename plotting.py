@@ -3,6 +3,7 @@ from pathlib import Path
 from typing import Callable, List, Tuple
 
 import matplotlib
+import matplotlib.gridspec as gridspec
 import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
@@ -91,13 +92,87 @@ def get_contour(
     y_scale = 1 / y_mesh.shape[1] * y_mesh.max()
     return contour[:, 1] * x_scale, contour[:, 0] * y_scale
 
+def move_axes(ax: Axes, x:float, y:float):
+    pos = ax.get_position()
+    ax.set_position([pos.x0 + x, pos.y0 + y, pos.width, pos.height])
+
+
+def align_subplot_bottom(ax_to_align_to: Axes, axes_to_align: List[Axes]):
+    # Sort axes_to_align by their y0 position
+    axes_to_align.sort(key=lambda ax: ax.get_position().y0)
+
+    # Get the gap_at_bottom between the axes to align to and the axes to align
+    gap_at_bottom = (
+        axes_to_align[0].get_position().y0 - ax_to_align_to.get_position().y0
+    )
+
+    # Add the gap evenly to all the axes to align
+    n_axes = len(axes_to_align)
+    for i in range(n_axes):
+        ax = axes_to_align[-i - 1]
+        pos = ax.get_position()
+        ax.set_position(
+            [
+                pos.x0,
+                pos.y0 - gap_at_bottom / n_axes * (i + 1),
+                pos.width,
+                pos.height + gap_at_bottom / n_axes,
+            ]
+        )
+
+
+def align_subplot_left(ax_to_align_to: Axes, axes_to_align: List[Axes]):
+    # Sort axes_to_align by their x0 position
+    axes_to_align.sort(key=lambda ax: ax.get_position().x0)
+
+    # Get the gap_at_left between the axes to align to and the axes to align
+    gap_at_left = axes_to_align[0].get_position().x0 - ax_to_align_to.get_position().x0
+
+    # Add the gap evenly to all the axes to align
+    n_axes = len(axes_to_align)
+    for i in range(n_axes):
+        ax = axes_to_align[-i - 1]
+        pos = ax.get_position()
+        ax.set_position(
+            [
+                pos.x0 - gap_at_left / n_axes * (i + 1),
+                pos.y0,
+                pos.width + gap_at_left / n_axes,
+                pos.height,
+            ]
+        )
+
+
+def align_subplot_right(ax_to_align_to: Axes, axes_to_align: List[Axes]):
+    # Sort axes_to_align by their x0 position
+    axes_to_align.sort(key=lambda ax: ax.get_position().x1)
+
+    # Get the gap_at_right between the axes to align to and the axes to align
+    gap_at_right = (
+        ax_to_align_to.get_position().x1 - axes_to_align[-1].get_position().x1
+    )
+
+    # Add the gap evenly to all the axes to align
+    n_axes = len(axes_to_align)
+    for i in range(n_axes):
+        ax = axes_to_align[i]
+        pos = ax.get_position()
+        ax.set_position(
+            [
+                pos.x0 + gap_at_right / n_axes * i,
+                pos.y0,
+                pos.width + gap_at_right / n_axes,
+                pos.height,
+            ]
+        )
+
 
 ####################
 #   Single layer   #
 ####################
 
 
-def plot_for_lambda(_lambda):
+def plot_for_lambda(ax: Axes, _lambda: float):
     query = (
         "SELECT h, Delta, x_vals, residuals FROM results WHERE _lambda = ?",
         (_lambda,),
@@ -106,9 +181,6 @@ def plot_for_lambda(_lambda):
     min_h_mev = min(h_list_mev)
     max_h_mev = max(h_list_mev)
 
-    fig = plt.figure(figsize=FIGURE_SIZE)
-    ax = fig.add_subplot()
-
     plot_series_cmap(ax, ax.plot, plot_tuples_mev, h_list_mev, min_h_mev, max_h_mev)
     Delta_plot_tuples = [([Delta], [0]) for Delta in Deltas_mev]
     scatter_fn = lambda x, y, **kwargs: ax.scatter(x, y, marker="x", **kwargs)
@@ -116,15 +188,13 @@ def plot_for_lambda(_lambda):
         ax, scatter_fn, Delta_plot_tuples, h_list_mev, min_h_mev, max_h_mev
     )
 
-    cbar = fig.colorbar(sc)
-    cbar.set_label("h (meV)")
     ax.scatter([], [], color="black", marker="x", label="Root")
     ax.axhline(y=0, color="gray", linestyle="--")
     ax.set_xlabel(r"$\Delta_0$ (meV)")
     ax.set_ylabel(r"$\delta \Delta$ (meV)")
     ax.set_title(rf"$\lambda = {_lambda}$")
     ax.legend()
-    return fig
+    return sc
 
 
 def plot_for_lambda_zeros(_lambda):
@@ -172,9 +242,144 @@ def plot_for_lambda_h_list(_lambda, h_list):
 
     ax.axhline(y=0, color="gray", linestyle="--")
     ax.set_xlabel(r"$\Delta_0$ (meV)")
-    ax.set_ylabel("Residual (meV)")
+    ax.set_ylabel(r"$\delta \Delta$ (meV)")
     ax.set_title(rf"$\lambda = {_lambda}$")
     ax.legend()
+    return fig
+
+
+def plot_gap_h(ax: Axes, lambda_list: float):
+    for _lambda in lambda_list:
+        h, delta = get_delta_vs_h(_lambda)
+        ax.plot(
+            h * 1e3,
+            delta * 1e3,
+            linestyle="--",
+            marker="o",
+            label=rf"$\lambda = {_lambda}$",
+        )
+
+    ax.legend()
+    ax.set_xlabel(r"$h$ (meV)")
+    ax.set_ylabel(r"$\Delta_s$ (meV)")
+    ax.set_ylim(0, None)
+
+
+def plot_gap_h_log(ax: Axes, lambda_list: float):
+    for _lambda in lambda_list:
+        h, delta = get_delta_vs_h(_lambda)
+        ax.plot(
+            h * 1e3,
+            delta * 1e3,
+            linestyle="--",
+            marker="o",
+            label=rf"$\lambda = {_lambda}$",
+        )
+
+    ax.legend()
+
+    # Log scale for x and y axes
+    ax.set_xscale("log")
+    ax.set_yscale("log")
+
+    ax.set_xlabel(r"$h$ (meV)")
+    ax.set_ylabel(r"$\Delta_s$ (meV)")
+
+
+def plot_lambda_h_report():
+    fig = plt.figure(figsize=(FIGURE_SIZE[0], FIGURE_SIZE[1] * 4 * 0.7))
+
+    gs = gridspec.GridSpec(4, 2)
+
+    lambda_list = [0.0, 0.04, 0.08, 0.1, 0.15, 0.2]
+    axes: List[Axes] = []
+    cbars = []
+    for i, _lambda in enumerate(lambda_list):
+        ax = fig.add_subplot(gs[i // 2, i % 2])
+        sc = plot_for_lambda(ax, _lambda)
+        ax.set_xlabel("")
+        ax.set_ylabel("")
+        ax.set_title("")
+        ax.legend().remove()
+        ax.text(
+            0.80,
+            0.90,
+            rf"$\lambda = {_lambda}$ ",
+            transform=ax.transAxes,
+            va="top",
+            ha="center",
+        )
+
+        axes.append(ax)
+
+        cbar = fig.colorbar(sc, ax=ax)
+        cbars.append(cbar)
+
+    x_offset = 0.04
+    y_offset = 0.02
+    y_offset_half = y_offset / 2
+    for i, (ax, cbar) in enumerate(zip(axes, cbars)):
+        if i // 2 == 0:
+            pos = ax.get_position()
+            ax.set_position([pos.x0, pos.y0 + y_offset_half, pos.width, pos.height])
+            pos = cbar.ax.get_position()
+            cbar.ax.set_position(
+                [pos.x0, pos.y0 + y_offset_half, pos.width, pos.height]
+            )
+
+        if i // 2 == 2:
+            pos = ax.get_position()
+            ax.set_position([pos.x0, pos.y0 - y_offset_half, pos.width, pos.height])
+            pos = cbar.ax.get_position()
+            cbar.ax.set_position(
+                [pos.x0, pos.y0 - y_offset_half, pos.width, pos.height]
+            )
+
+        if i % 2 == 0:
+            pos = ax.get_position()
+            ax.set_position([pos.x0 - x_offset, pos.y0, pos.width, pos.height])
+            pos = cbar.ax.get_position()
+            cbar.ax.set_position([pos.x0 - x_offset, pos.y0, pos.width, pos.height])
+
+    sc = ax.scatter([], [], color="k", marker="x", label="root")
+    fig.legend(
+        handles=[sc],
+        loc="upper center",
+        ncol=1,
+        fontsize=12,
+        bbox_to_anchor=(0.45, 0.94),
+        bbox_transform=fig.transFigure,
+    )
+
+    y_offset = 0.05
+    ax = fig.add_subplot(gs[3, :])
+    plot_gap_h_log(ax, [0.05, 0.1, 0.15, 0.2])
+    align_subplot_left(axes[0], [ax])
+    align_subplot_right(axes[-1], [ax])
+    pos = ax.get_position()
+    ax.set_position([pos.x0, pos.y0 - y_offset, pos.width, pos.height])
+
+    fig.text(
+        -0.02,
+        0.59,
+        r"$\delta \Delta$ (meV)",
+        va="center",
+        rotation="vertical",
+        fontsize=12,
+    )
+    fig.text(
+        0.93,
+        0.59,
+        r"$h$ (meV)",
+        va="center",
+        rotation="vertical",
+        fontsize=12,
+    )
+    fig.text(0.45, 0.26, r"$\Delta_0$ (meV)", ha="center", fontsize=12)
+
+    fig.text(-0.01, 0.9, "(a)", ha="center", fontsize=12)
+    fig.text(-0.01, 0.24, "(b)", ha="center", fontsize=12)
+
     return fig
 
 
@@ -348,12 +553,13 @@ def get_critical_current_subplot(ax: Axes, layers_str: str, tunneling: float):
         plot_tuples.append(([temperature], subset["jc"]))
         temperatures.append(temperature)
 
+    scatter_fn = lambda *args, **kwargs: ax.scatter(*args, **kwargs, s=10)
     sc = plot_series_cmap_log_scale(
-        ax, ax.scatter, plot_tuples, temperatures, min(temperatures), max(temperatures)
+        ax, scatter_fn, plot_tuples, temperatures, min(temperatures), max(temperatures)
     )
     ax.plot(df["temperature"], df["jc"], color="k", zorder=-1)
 
-    ax.set_xlabel(r"Temperature $(K)$")
+    ax.set_xlabel(r"$T$ (K)")
     ax.set_ylabel(r"$j_c$ $(M A\ m^{-2})$")
     ax.set_xlim(0, 12)
     ax.set_ylim(0.1, None)
@@ -364,33 +570,47 @@ def get_critical_current_subplot(ax: Axes, layers_str: str, tunneling: float):
 def get_critical_phase_subplot(ax: Axes, layers_str: str, tunneling: float):
     df = get_critical_current_data(layers_str, tunneling)
 
-    ax.plot(df["temperature"], df["phase"], color="k")
+    plot_tuples = []
+    temperatures = []
+    for temperature in df["temperature"].unique():
+        subset = df[df["temperature"] == temperature]
+        plot_tuples.append(([temperature], subset["phase"]))
+        temperatures.append(temperature)
 
-    ax.set_xlabel(r"Temperature $(K)$")
+    scatter_fn = lambda *args, **kwargs: ax.scatter(*args, **kwargs, s=10)
+    sc = plot_series_cmap_log_scale(
+        ax, scatter_fn, plot_tuples, temperatures, min(temperatures), max(temperatures)
+    )
+    ax.plot(df["temperature"], df["phase"], color="k", zorder=-1)
+
+    ax.set_xlabel(r"$T$ (K)")
     ax.set_ylabel(r"$\phi_c$ (rad)")
     ax.set_xlim(0, 12)
     y_ticks = [0, np.pi / 2, np.pi]
     ax.set_yticks(y_ticks)
     ax.set_yticklabels([r"$0$", r"$\pi/2$", r"$\pi$"])
 
+    return sc
+
 
 def plot_critical_current(layers_str: str, tunneling: float):
-    fig = plt.figure(figsize=(FIGURE_SIZE[0], FIGURE_SIZE[1] * 3 * 0.8))
+    fig = plt.figure(figsize=(FIGURE_SIZE[0], FIGURE_SIZE[1]))
 
-    ax1 = fig.add_subplot(311)
-    ax2 = fig.add_subplot(312)
-    ax3 = fig.add_subplot(313, sharex=ax2)
+    gs = gridspec.GridSpec(2, 2, width_ratios=[1, 1])  # 2 rows, 2 columns
+    ax1 = fig.add_subplot(gs[:, 0])  # Left column spanning both rows
+    ax2 = fig.add_subplot(gs[0, 1])  # Top-right
+    ax3 = fig.add_subplot(gs[1, 1], sharex=ax2)  # Bottom-right
 
     join_axes_with_shared_x(ax2, ax3)
+    align_subplot_bottom(ax1, [ax2, ax3])
 
     pos1 = ax1.get_position()
-    ax1.set_position([pos1.x0, pos1.y0 + 0.04, pos1.width, pos1.height])
-    plt.setp(ax2.get_xticklabels(), visible=False)
+    ax1.set_position([pos1.x0 - 0.1, pos1.y0, pos1.width, pos1.height])
 
     # Add labels to the plots
-    ax1.text(0.05, 0.95, "(a)", transform=ax1.transAxes, va="top", ha="center")
-    ax2.text(0.95, 0.95, "(b)", transform=ax2.transAxes, va="top", ha="center")
-    ax3.text(0.05, 0.95, "(c)", transform=ax3.transAxes, va="top", ha="center")
+    ax1.text(0.10, 0.95, "(a)", transform=ax1.transAxes, va="top", ha="center")
+    ax2.text(0.9, 0.95, "(b)", transform=ax2.transAxes, va="top", ha="center")
+    ax3.text(0.10, 0.95, "(c)", transform=ax3.transAxes, va="top", ha="center")
 
     get_current_angle_subplot(ax1, layers_str, tunneling)
     sc = get_critical_current_subplot(ax2, layers_str, tunneling)
@@ -400,7 +620,7 @@ def plot_critical_current(layers_str: str, tunneling: float):
 
     axes = [ax1, ax2, ax3]
     cbar = fig.colorbar(sc, ax=axes)
-    cbar.set_label(r"Temperature $(K)$")
+    cbar.set_label(r"$T$ (K)")
     tick_values = [1.0, 2.0, 4.0, 8.0]
     cbar.set_ticks(tick_values)
     cbar.set_ticklabels([f"{t:.1f}" for t in tick_values])
@@ -430,7 +650,7 @@ def plot_current_diff_tunneling():
     ax2 = fig.add_subplot(223, sharex=ax1)
     join_axes_with_shared_x(ax1, ax2)
 
-    ax2.set_xlabel("Temperature (K)")
+    ax2.set_xlabel(r"$T$ (K)")
     ax2.set_ylabel(r"$j_c / j_{c0}$")
     ax2.set_ylim(0, 1)
     sc = plot_series_cmap_log_scale(
@@ -449,15 +669,18 @@ def plot_current_diff_tunneling():
     ax3.set_position([pos3.x0 + second_col_offset, pos3.y0, pos3.width, pos3.height])
     for t in np.array([0.5, 1, 2]) * 1e-3:
         df = get_current_angle_data("S1_N_S2", t)
-        df = df[df["temperature"] == df["temperature"].min()]
+        df: pd.DataFrame = df[df["temperature"] == df["temperature"].min()]
         ax3.plot(
-            df["phase"], df["jc"] / df["jc"].max(), label=f"$t = {t * 1e3:.2f}$ meV"
+            df["phase"],
+            df["jc"] / df["jc"].abs().max(),
+            label=f"$t = {t * 1e3:.2f}$ meV",
         )
     ax3.set_xlabel(r"$\phi$ (rad)")
     x_ticks = [-np.pi, 0, np.pi]
     ax3.set_xticks(x_ticks)
     ax3.set_xticklabels([r"$-\pi$", r"$0$", r"$\pi$"])
     ax3.set_ylabel(r"$j / j_0$")
+    ax3.set_ylim(-1, 1)
     ax3.legend()
 
     ax4 = fig.add_subplot(224)
@@ -489,21 +712,7 @@ def plot_current_diff_tunneling():
     ax4.set_ylabel(r"$\phi_{c0}$ (rad)")
     ax4.set_xscale("log")
 
-    pos1 = ax1.get_position()
-    pos2 = ax2.get_position()
-    pos4 = ax4.get_position()
-    gap_at_bottom = pos2.y0 - pos4.y0
-    ax1.set_position(
-        [
-            pos1.x0,
-            pos1.y0 - gap_at_bottom / 2,
-            pos1.width,
-            pos1.height + gap_at_bottom / 2,
-        ]
-    )
-    ax2.set_position(
-        [pos2.x0, pos2.y0 - gap_at_bottom, pos2.width, pos2.height + gap_at_bottom / 2]
-    )
+    align_subplot_bottom(ax4, [ax1, ax2])
 
     # Add labels to the plots
     ax1.text(0.10, 0.95, "(a)", transform=ax1.transAxes, va="top", ha="center")
