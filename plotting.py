@@ -503,64 +503,62 @@ def plot_residual_phase_stability(
 
 
 def get_stability_zeroes():
-        tuple_list = [
-            (0.1, 1e-3, 2e-3),
-            (0.11, 5e-3, 5e-3),
-            (0.12, 5e-3, 5e-3),
-            (0.13, 1e-2, 1e-2),
-            (0.14, 2e-2, 2e-2),
-            (0.15, 2e-2, 2e-2),
-            (0.16, 3e-2, 3e-2),
-            (0.17, 3e-2, 3e-2),
-            (0.18, 4e-2, 4e-2),
-            (0.19, 4e-2, 4e-2),
-            (0.20, 5e-2, 5e-2),
-        ]
-        tuple_list = np.array(tuple_list)
-        N = 41
+    tuple_list = [
+        (0.1, 1e-3, 2e-3),
+        (0.11, 5e-3, 5e-3),
+        (0.12, 5e-3, 5e-3),
+        (0.13, 1e-2, 1e-2),
+        (0.14, 2e-2, 2e-2),
+        (0.15, 2e-2, 2e-2),
+        (0.16, 3e-2, 3e-2),
+        (0.17, 3e-2, 3e-2),
+        (0.18, 4e-2, 4e-2),
+        (0.19, 4e-2, 4e-2),
+        (0.20, 5e-2, 5e-2),
+    ]
+    tuple_list = np.array(tuple_list)
+    N = 41
 
-        stable_zeroes_list = []
-        unstable_zeroes_list = []
+    stable_zeroes_list = []
+    unstable_zeroes_list = []
 
-        for i, (_lambda, h_end, max_Delta) in enumerate(tuple_list):
-            Delta_mesh_mev, h_mesh_mev, residual_mesh_mev = get_residuals_phase(
-                _lambda, max_Delta, h_end, N
-            )
-            stable_zeros, unstable_zeros = get_residual_phase_stability(
-                Delta_mesh_mev, h_mesh_mev, residual_mesh_mev
-            )
+    for i, (_lambda, h_end, max_Delta) in enumerate(tuple_list):
+        Delta_mesh_mev, h_mesh_mev, residual_mesh_mev = get_residuals_phase(
+            _lambda, max_Delta, h_end, N
+        )
+        stable_zeros, unstable_zeros = get_residual_phase_stability(
+            Delta_mesh_mev, h_mesh_mev, residual_mesh_mev
+        )
 
-            stable_zeros = np.array(stable_zeros)
-            unstable_zeros = np.array(unstable_zeros)
-            max_values = np.concatenate(
-                [
-                    stable_zeros.max(axis=1, keepdims=True),
-                    unstable_zeros.max(axis=1, keepdims=True),
-                ],
-                axis=1,
-            )
-            max_val_kx = max_values.max(axis=1, keepdims=True)
-            stable_zeros /= max_val_kx
-            unstable_zeros /= max_val_kx
+        stable_zeros = np.array(stable_zeros)
+        unstable_zeros = np.array(unstable_zeros)
+        max_values = np.concatenate(
+            [
+                stable_zeros.max(axis=1, keepdims=True),
+                unstable_zeros.max(axis=1, keepdims=True),
+            ],
+            axis=1,
+        )
+        max_val_kx = max_values.max(axis=1, keepdims=True)
+        stable_zeros /= max_val_kx
+        unstable_zeros /= max_val_kx
 
-            stable_zeroes_list.append(stable_zeros)
-            unstable_zeroes_list.append(unstable_zeros)
+        stable_zeroes_list.append(stable_zeros)
+        unstable_zeroes_list.append(unstable_zeros)
 
-        return tuple_list, stable_zeroes_list, unstable_zeroes_list
+    return tuple_list, stable_zeroes_list, unstable_zeroes_list
 
-    tuple_list, stable_zeroes_list, unstable_zeroes_list = get_zeroes()
-    _lambdas = tuple_list[:, 0]
-    cmap = "copper"
 
-    fig = plt.figure(
-        figsize=(FIGURE_SIZE[0], FIGURE_SIZE[1] * 3),
-    )
-
-    # Top plot
-    ax1 = fig.add_subplot(311)
+def get_stability_subplot(
+    ax: Axes,
+    _lambdas: List,
+    stable_zeroes_list: List[Tuple[NDArray]],
+    unstable_zeroes_list: List[Tuple[NDArray]],
+    cmap: str,
+):
     sc = plot_series_cmap(
-        ax=ax1,
-        plot_fn=ax1.plot,
+        ax=ax,
+        plot_fn=ax.plot,
         series_list=stable_zeroes_list,
         series_cmap_values=_lambdas,
         cmap_min=min(_lambdas),
@@ -568,8 +566,8 @@ def get_stability_zeroes():
         cmap=cmap,
     )
     plot_series_cmap(
-        ax=ax1,
-        plot_fn=lambda *args, **kwargs: ax1.plot(*args, linestyle="--", **kwargs),
+        ax=ax,
+        plot_fn=lambda *args, **kwargs: ax.plot(*args, linestyle="--", **kwargs),
         series_list=unstable_zeroes_list,
         series_cmap_values=_lambdas,
         cmap_min=min(_lambdas),
@@ -577,17 +575,24 @@ def get_stability_zeroes():
         cmap=cmap,
     )
 
-    ax1.set_xlim(0, 1.05)
-    ax1.set_ylim(0, 1.05)
-    ax1.set_xlabel(r"$\Delta_0/\max(\Delta_0)$")
-    ax1.set_ylabel(r"$h/\max(h)$")
+    ax.set_xlim(0, 1.05)
+    ax.set_ylim(0, 1.05)
+    ax.set_xlabel(r"$\Delta_s/\max(\Delta_s)$")
+    ax.set_ylabel(r"$h/\max(h)$")
+    return sc
 
-    # Middle plot
-    Delta_sample = 0.2
+
+def get_stability_h_lambda_subplot(
+    ax: Axes,
+    _lambdas: List,
+    unstable_zeroes_list: List[Tuple[NDArray]],
+    cmap: str,
+    Delta_sample: float = 0.2,
+):
     h_samples = []
     _lambda_samples = []
-    for _lambda, stable_zeroes in zip(_lambdas, unstable_zeroes_list):
-        x, y = stable_zeroes
+    for _lambda, unstable_zeroes in zip(_lambdas, unstable_zeroes_list):
+        x, y = unstable_zeroes
         if Delta_sample < x.min() or Delta_sample > y.max():
             continue
 
@@ -596,26 +601,24 @@ def get_stability_zeroes():
         h_samples.append(h_sample)
         _lambda_samples.append(_lambda)
 
-    ax2 = fig.add_subplot(312)
-    ax2.plot(_lambda_samples, h_samples, zorder=-1, color="k")
-    ax2.set_ylabel(r"$h/\max(h)$")
+    ax.plot(_lambda_samples, h_samples, zorder=-1, color="k")
+    ax.set_ylabel(r"$h/\max(h)$")
 
     plot_series_cmap(
-        ax=ax2,
-        plot_fn=ax2.scatter,
+        ax=ax,
+        plot_fn=ax.scatter,
         series_list=list(zip(_lambda_samples, h_samples)),
         series_cmap_values=_lambda_samples,
         cmap_min=min(_lambdas),
         cmap_max=max(_lambdas),
         cmap=cmap,
     )
+    return _lambda_samples, h_samples
 
-    ax1.scatter([0.2] * len(_lambda_samples), h_samples, color="k", zorder=100, s=15)
-    ax1.axvline(0.2, color="k", zorder=99)
 
-    # Bottom plot
-    ax3 = fig.add_subplot(313)
-
+def get_stability_delta_lambda_zeroes(
+    ax: Axes, _lambdas: List, unstable_zeroes_list: List[Tuple[NDArray]], cmap: str
+):
     critical_pts = []
     for unstable_zeroes in unstable_zeroes_list:
         x, y = unstable_zeroes
@@ -625,14 +628,45 @@ def get_stability_zeroes():
     series_list = [
         ([_lambda], [Delta_c]) for _lambda, (Delta_c, _) in zip(_lambdas, critical_pts)
     ]
-    ax3.plot(_lambdas, [pt[0] for pt in critical_pts], zorder=-1, color="k")
+    ax.plot(_lambdas, [pt[0] for pt in critical_pts], zorder=-1, color="k")
     plot_series_cmap(
-        ax3, ax3.scatter, series_list, _lambdas, min(_lambdas), max(_lambdas), cmap=cmap
+        ax, ax.scatter, series_list, _lambdas, min(_lambdas), max(_lambdas), cmap=cmap
     )
-    ax3.set_xlabel(r"$\lambda$ (meV)")
-    ax3.set_ylabel(r"$\Delta_c$ (meV)")
+    ax.axhline(1.0, color="gray", linestyle="-.", zorder=-1)
+    ax.set_xlabel(r"$\lambda$ (meV)")
+    ax.set_ylabel(r"$\Delta_c/\max(\Delta_s)$")
+    ax.set_ylim(None, 1.05)
 
-    for _lambda, (Delta_c, h_c) in zip(_lambdas, critical_pts):
+    return critical_pts
+
+
+def plot_stability_report(
+    fig: Figure, axes: List[Axes], Delta_sample: float = 0.2, cmap: str = "copper"
+):
+    tuple_list, stable_zeroes_list, unstable_zeroes_list = get_stability_zeroes()
+    _lambdas = tuple_list[:, 0]
+
+    ax1, ax2, ax3 = axes
+
+    # Top plot
+    sc = get_stability_subplot(
+        ax1, _lambdas, stable_zeroes_list, unstable_zeroes_list, cmap
+    )
+
+    # Middle plot
+    _lambda_samples, h_samples = get_stability_h_lambda_subplot(
+        ax2, _lambdas, unstable_zeroes_list, cmap, Delta_sample
+    )
+    ax1.scatter(
+        [Delta_sample] * len(_lambda_samples), h_samples, color="k", zorder=100, s=15
+    )
+    ax1.axvline(Delta_sample, color="k", zorder=99)
+
+    # Bottom plot
+    critical_pts = get_stability_delta_lambda_zeroes(
+        ax3, _lambdas, unstable_zeroes_list, cmap
+    )
+    for Delta_c, h_c in critical_pts:
         ax1.plot(
             [Delta_c, Delta_c], [0, h_c], linestyle="-.", color="lightgray", zorder=-1
         )
@@ -640,11 +674,120 @@ def get_stability_zeroes():
     fig.subplots_adjust(hspace=0.4)
     join_axes_with_shared_x(ax2, ax3)
 
-    ax1.text(0.05, 0.10, "(a)", transform=ax1.transAxes, va="center", ha="center")
-    ax2.text(0.95, 0.90, "(b)", transform=ax2.transAxes, va="center", ha="center")
-    ax3.text(0.05, 0.90, "(c)", transform=ax3.transAxes, va="center", ha="center")
+    p1 = ax3.plot([], [], linestyle="--", label="Unstable", color="k")
+    p2 = ax3.plot([], [], label="Stable", color="k")
 
-    fig.colorbar(sc, ax=[ax1, ax2, ax3], label=r"$\lambda$ (meV)")
+    fig.legend(
+        handles=[p1[0], p2[0]],
+        loc="upper center",
+        ncol=2,
+        bbox_to_anchor=(0.45, 0.94),
+        bbox_transform=fig.transFigure,
+    )
+
+    return sc
+
+
+def plot_residual_phase_stability_poster():
+    with plt.rc_context(POSTER_MPL_CONTEXT_ARGS):
+        gs = gridspec.GridSpec(
+            3, 3, width_ratios=[1, 0.8, 0.05], height_ratios=[1, 1, 1]
+        )
+
+        lambda_list = [0.1, 0.15, 0.2]
+        h_end_list = [1e-3, 2e-2, 5e-2]
+        max_Delta_list = [2e-3, 2e-2, 50e-3]
+        N = 41
+        fig = plt.figure(figsize=(FIGURE_SIZE[0] * 1.3, FIGURE_SIZE[1] * 3 * 0.7))
+        letters = ["a", "b", "c"]
+
+        phase_axes = []
+        y_offset = 0.05
+
+        for i, (letter, _lambda, h_end, max_Delta) in enumerate(
+            zip(letters, lambda_list, h_end_list, max_Delta_list)
+        ):
+            ax = fig.add_subplot(gs[i, 0])
+            Delta_mesh_mev, h_mesh_mev, residual_mesh_mev = get_residuals_phase(
+                _lambda, max_Delta, h_end, N
+            )
+            cbar = plot_residual_phase(
+                fig=fig,
+                ax=ax,
+                Delta_mesh_mev=Delta_mesh_mev,
+                h_mesh_mev=h_mesh_mev,
+                residual_mesh_mev=residual_mesh_mev,
+            )
+            plot_residual_phase_stability(
+                ax=ax,
+                Delta_mesh_mev=Delta_mesh_mev,
+                h_mesh_mev=h_mesh_mev,
+                residual_mesh_mev=residual_mesh_mev,
+            )
+            if i > 0:
+                ax.legend().remove()
+
+            ax.set_xlabel("")
+            ax.set_ylabel("")
+            cbar.set_label("")
+            cbar.locator = ticker.MaxNLocator(nbins=5)
+            cbar.update_ticks()
+            t = ax.text(
+                0.05,
+                0.10,
+                rf"({letter}) $\lambda$={_lambda}",
+                transform=ax.transAxes,
+                ha="left",
+            )
+            t.set_bbox(
+                dict(
+                    facecolor="white",
+                    edgecolor=None,
+                    alpha=0.5,
+                )
+            )
+            phase_axes.append(ax)
+
+        fig.text(0.05, 0.49, r"$h$ (meV)", va="center", rotation="vertical")
+        fig.text(0.26, 0.05, r"$\Delta_0$ (meV)", ha="center")
+        fig.text(
+            0.50,
+            0.5,
+            r"$\delta \Delta$ (meV)",
+            va="center",
+            rotation="vertical",
+        )
+
+        axes = [fig.add_subplot(gs[i, 1]) for i in range(3)]
+        Delta_sample = 0.2
+        sc = plot_stability_report(axes, Delta_sample=Delta_sample)
+        cbar_axes = fig.add_subplot(gs[:, 2])
+        cbar = fig.colorbar(sc, cax=cbar_axes, label=r"$\lambda$ (meV)")
+
+        x_offset = 0.08
+        for ax in axes:
+            move_axes(ax, x_offset, 0)
+
+        move_axes(cbar_axes, x_offset, 0)
+
+        y_offset = 0.04
+        move_axes(axes[1], 0, -y_offset)
+        move_axes(axes[2], 0, -y_offset)
+
+        ax1, ax2, ax3 = axes
+        ax1.text(0.10, 0.10, "(d)", transform=ax1.transAxes, va="center", ha="center")
+        ax2.text(0.90, 0.90, "(e)", transform=ax2.transAxes, va="center", ha="center")
+        ax2.text(
+            0.90,
+            0.60,
+            rf"$\Delta_s/\max(\Delta_s)$ = {Delta_sample:.1f}",
+            transform=ax2.transAxes,
+            va="center",
+            ha="right",
+        )
+        ax3.text(0.90, 0.10, "(f)", transform=ax3.transAxes, va="center", ha="center")
+
+        align_subplot_bottom(ax_to_align_to=phase_axes[-1], axes_to_align=axes[1:])
 
     return fig
 
@@ -1006,7 +1149,7 @@ def plot_junction_poster(layers_str: str, tunneling: float):
 
         axes = [ax3, ax4]
         cbar = fig.colorbar(sc, ax=axes)
-    cbar.set_label(r"$t$ (meV)")
+        cbar.set_label(r"$t$ (meV)")
 
         # Add labels to the plots
         ax1.text(0.10, 0.95, "(a)", transform=ax1.transAxes, va="top", ha="center")
