@@ -7,8 +7,9 @@ import matplotlib.gridspec as gridspec
 import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
+from matplotlib import ticker
 from matplotlib.axes import Axes
-from matplotlib.colors import LogNorm, Normalize
+from matplotlib.colors import LinearSegmentedColormap, LogNorm, Normalize
 from matplotlib.figure import Figure
 from numpy.typing import NDArray
 from scipy.interpolate import interp1d
@@ -36,6 +37,32 @@ REPORT_MEDIA_DIR = PRESENTATION_MEDIA_DIR / "report"
 REPORT_MEDIA_DIR.mkdir(exist_ok=True)
 SLIDES_MEDIA_DIR = PRESENTATION_MEDIA_DIR / "slides"
 SLIDES_MEDIA_DIR.mkdir(exist_ok=True)
+POSTER_MEDIA_DIR = PRESENTATION_MEDIA_DIR / "poster"
+POSTER_MEDIA_DIR.mkdir(exist_ok=True)
+
+POSTER_FIGURE_WIDTH = 8 * 1.3
+POSTER_FONT_SIZE = 14
+POSTER_MPL_CONTEXT_ARGS = {"font.size": POSTER_FONT_SIZE}
+
+cmap1 = plt.get_cmap("viridis")
+cmap2 = plt.get_cmap("cividis")
+
+
+# Create a custom colormap by blending the two base colormaps
+def blend_colormaps(cmap1, cmap2, blend_ratio=0.5):
+    """Blend two colormaps together."""
+    c1 = cmap1(np.linspace(0, 1, 256))
+    c2 = cmap2(np.linspace(0, 1, 256))
+    blended_colors = (1 - blend_ratio) * c1 + blend_ratio * c2
+    return LinearSegmentedColormap.from_list("blended_cmap", blended_colors)
+
+
+def trim_colormap(cmap, min_val=0.0, max_val=1.0):
+    cmap_colors = cmap(np.linspace(0, 1, 256))
+    return LinearSegmentedColormap.from_list(
+        "trimmed_cmap", cmap_colors[int(min_val * 256) : int(max_val * 256)]
+    )
+
 
 ##############################
 #   General plot functions   #
@@ -64,19 +91,26 @@ def plot_series_cmap(
 
 
 def plot_series_cmap_log_scale(
-    ax: Axes, plot_fn: Callable, series_list, series_cmap_values, cmap_min, cmap_max
+    ax: Axes,
+    plot_fn: Callable,
+    series_list,
+    series_cmap_values,
+    cmap_min,
+    cmap_max,
+    cmap="copper",
 ):
     for series, series_cmap_value in zip(series_list, series_cmap_values):
         # Apply logarithmic scaling to the color mapping
         log_min = np.log10(max(cmap_min, 1e-10))
         log_max = np.log10(max(cmap_max, 1e-10))
         log_value = np.log10(max(series_cmap_value, 1e-10))
-        color = plt.cm.copper((log_value - log_min) / (log_max - log_min))
+        cm = plt.get_cmap(cmap)
+        color = cm((log_value - log_min) / (log_max - log_min))
         x, y = series
         plot_fn(x, y, color=color)
 
     plot_norm = LogNorm(vmin=max(cmap_min, 1e-10), vmax=cmap_max)
-    sc = ax.scatter([], [], c=[], cmap="copper", norm=plot_norm)
+    sc = ax.scatter([], [], c=[], cmap=cmap, norm=plot_norm)
     return sc
 
 
@@ -224,7 +258,7 @@ def plot_for_lambda_zeros(_lambda):
 
     ax.axhline(y=0, color="gray", linestyle="--")
     ax.set_xlabel(r"$\Delta_0$ (meV)")
-    ax.set_ylabel("Residual (meV)")
+    ax.set_ylabel(r"$\delta \Delta$ (meV)")
     ax.set_title(rf"$\lambda = {_lambda}$")
     ax.legend()
     return fig
@@ -294,9 +328,9 @@ def plot_gap_h_log(ax: Axes, lambda_list: float):
 
 
 def plot_lambda_h_report():
-    fig = plt.figure(figsize=(FIGURE_SIZE[0], FIGURE_SIZE[1] * 4 * 0.7))
+    fig = plt.figure(figsize=(FIGURE_SIZE[0], FIGURE_SIZE[1] * 4 * 0.65))
 
-    gs = gridspec.GridSpec(4, 2)
+    gs = gridspec.GridSpec(4, 2, height_ratios=[0.9, 0.9, 0.9, 1])
 
     lambda_list = [0.0, 0.04, 0.08, 0.1, 0.15, 0.2]
     axes: List[Axes] = []
@@ -368,21 +402,23 @@ def plot_lambda_h_report():
 
     fig.text(
         -0.02,
-        0.59,
+        0.60,
         r"$\delta \Delta$ (meV)",
         va="center",
+        ha="center",
         rotation="vertical",
         fontsize=12,
     )
     fig.text(
         0.93,
-        0.59,
+        0.60,
         r"$h$ (meV)",
         va="center",
+        ha="center",
         rotation="vertical",
         fontsize=12,
     )
-    fig.text(0.45, 0.26, r"$\Delta_0$ (meV)", ha="center", fontsize=12)
+    fig.text(0.47, 0.28, r"$\Delta_0$ (meV)", ha="center", fontsize=12)
 
     fig.text(-0.01, 0.9, "(a)", ha="center", fontsize=12)
     fig.text(-0.01, 0.24, "(b)", ha="center", fontsize=12)
@@ -466,8 +502,7 @@ def plot_residual_phase_stability(
     ax.legend()
 
 
-def plot_residual_phase_stability_report():
-    def get_zeroes():
+def get_stability_zeroes():
         tuple_list = [
             (0.1, 1e-3, 2e-3),
             (0.11, 5e-3, 5e-3),
@@ -599,7 +634,7 @@ def plot_residual_phase_stability_report():
 
     for _lambda, (Delta_c, h_c) in zip(_lambdas, critical_pts):
         ax1.plot(
-            [Delta_c, Delta_c], [0, h_c], linestyle="--", color="lightgray", zorder=-1
+            [Delta_c, Delta_c], [0, h_c], linestyle="-.", color="lightgray", zorder=-1
         )
 
     fig.subplots_adjust(hspace=0.4)
@@ -646,7 +681,9 @@ def get_current_angle_data(layers_str: str, tunneling: float):
     return sorted_df
 
 
-def get_current_angle_subplot(ax: Axes, layers_str: str, tunneling: float):
+def get_current_angle_subplot(
+    ax: Axes, layers_str: str, tunneling: float, cmap: str = "copper"
+):
     df = get_current_angle_data(layers_str, tunneling)
 
     plot_tuples = []
@@ -657,7 +694,13 @@ def get_current_angle_subplot(ax: Axes, layers_str: str, tunneling: float):
         temperatures.append(temperature)
 
     sc = plot_series_cmap_log_scale(
-        ax, ax.plot, plot_tuples, temperatures, min(temperatures), max(temperatures)
+        ax,
+        ax.plot,
+        plot_tuples,
+        temperatures,
+        min(temperatures),
+        max(temperatures),
+        cmap=cmap,
     )
 
     ax.set_xlabel(r"$\phi$ (rad)")
@@ -698,7 +741,9 @@ def get_critical_current_data(layers_str: str, tunneling: float):
     return sorted_df
 
 
-def get_critical_current_subplot(ax: Axes, layers_str: str, tunneling: float):
+def get_critical_current_subplot(
+    ax: Axes, layers_str: str, tunneling: float, cmap: str = "copper"
+):
     df = get_critical_current_data(layers_str, tunneling)
 
     plot_tuples = []
@@ -710,7 +755,13 @@ def get_critical_current_subplot(ax: Axes, layers_str: str, tunneling: float):
 
     scatter_fn = lambda *args, **kwargs: ax.scatter(*args, **kwargs, s=10)
     sc = plot_series_cmap_log_scale(
-        ax, scatter_fn, plot_tuples, temperatures, min(temperatures), max(temperatures)
+        ax,
+        scatter_fn,
+        plot_tuples,
+        temperatures,
+        min(temperatures),
+        max(temperatures),
+        cmap=cmap,
     )
     ax.plot(df["temperature"], df["jc"], color="k", zorder=-1)
 
@@ -722,7 +773,9 @@ def get_critical_current_subplot(ax: Axes, layers_str: str, tunneling: float):
     return sc
 
 
-def get_critical_phase_subplot(ax: Axes, layers_str: str, tunneling: float):
+def get_critical_phase_subplot(
+    ax: Axes, layers_str: str, tunneling: float, cmap: str = "copper"
+):
     df = get_critical_current_data(layers_str, tunneling)
 
     plot_tuples = []
@@ -734,7 +787,13 @@ def get_critical_phase_subplot(ax: Axes, layers_str: str, tunneling: float):
 
     scatter_fn = lambda *args, **kwargs: ax.scatter(*args, **kwargs, s=10)
     sc = plot_series_cmap_log_scale(
-        ax, scatter_fn, plot_tuples, temperatures, min(temperatures), max(temperatures)
+        ax,
+        scatter_fn,
+        plot_tuples,
+        temperatures,
+        min(temperatures),
+        max(temperatures),
+        cmap=cmap,
     )
     ax.plot(df["temperature"], df["phase"], color="k", zorder=-1)
 
@@ -783,6 +842,83 @@ def plot_critical_current(layers_str: str, tunneling: float):
     return fig
 
 
+def get_current_temperature_diff_tunneling_subplot(
+    ax: Axes, layers_str: str, tunneling_params: float, cmap: str = "copper"
+):
+    series_list = []
+    for t in tunneling_params:
+        df = get_critical_current_data(layers_str, t)
+        series_list.append((df["temperature"], df["jc"] / max(df["jc"])))
+
+    ax.set_xlabel(r"$T$ (K)")
+    ax.set_ylabel(r"$j_c / j_{c0}$")
+    ax.set_ylim(0, 1)
+    sc = plot_series_cmap_log_scale(
+        ax=ax,
+        plot_fn=ax.plot,
+        series_list=series_list,
+        series_cmap_values=tunneling_params * 1e3,
+        cmap_min=min(tunneling_params) * 1e3,
+        cmap_max=max(tunneling_params) * 1e3,
+        cmap=cmap,
+    )
+    return sc
+
+
+def get_current_phase_diff_tunneling_subplot(
+    ax: Axes, layers_str: str, tunneling_params: float
+):
+    for t in tunneling_params:
+        df = get_current_angle_data(layers_str, t)
+        df: pd.DataFrame = df[df["temperature"] == df["temperature"].min()]
+        ax.plot(
+            df["phase"],
+            df["jc"] / df["jc"].abs().max(),
+            label=f"$t = {t * 1e3:.2f}$ meV",
+        )
+    ax.set_xlabel(r"$\phi$ (rad)")
+    x_ticks = [-np.pi, 0, np.pi]
+    ax.set_xticks(x_ticks)
+    ax.set_xticklabels([r"$-\pi$", r"$0$", r"$\pi$"])
+    ax.set_ylabel(r"$j / j_0$")
+    ax.set_ylim(-1, 1)
+    ax.legend()
+
+
+def get_phase_diff_tunneling_subplot(
+    ax: Axes, layers_str: str, tunneling_params: float, cmap: str = "copper"
+):
+    critical_phases = []
+    for t in tunneling_params:
+        df = get_critical_current_data("S1_N_S2", t)
+        critical_phases.append(df["phase"].max())
+
+    series_list = list(
+        zip(
+            tunneling_params[:, np.newaxis] * 1e3,
+            np.array(critical_phases)[:, np.newaxis],
+        )
+    )
+    plot_series_cmap_log_scale(
+        ax=ax,
+        plot_fn=ax.scatter,
+        series_list=series_list,
+        series_cmap_values=tunneling_params,
+        cmap_min=min(tunneling_params),
+        cmap_max=max(tunneling_params),
+        cmap=cmap,
+    )
+    ax.plot(tunneling_params * 1e3, critical_phases, color="k", zorder=-1)
+
+    ax.axhline(y=np.pi / 2, color="gray", linestyle="--")
+    y_ticks = [0, np.pi / 2, np.pi]
+    ax.set_yticks(y_ticks)
+    ax.set_yticklabels([r"$0$", r"$\pi/2$", r"$\pi$"])
+    ax.set_xlabel(r"$t$ (meV)")
+    ax.set_ylabel(r"$\phi_{c0}$ (rad)")
+    ax.set_xscale("log")
+
+
 def plot_current_diff_tunneling():
     fig = plt.figure(figsize=(FIGURE_SIZE[0], FIGURE_SIZE[1] * 2))
 
@@ -796,77 +932,24 @@ def plot_current_diff_tunneling():
     ax1.set_ylim(0, None)
     ax1.set_ylabel(r"$j_c$ $(M A\ m^{-2})$")
 
-    series_list = []
-    tunneling_params = np.array([0.1, 0.25, 0.5, 1, 2, 5, 10]) * 1e-3
-    for t in tunneling_params:
-        df = get_critical_current_data("S1_N_S2", t)
-        series_list.append((df["temperature"], df["jc"] / max(df["jc"])))
+    second_col_offset = 0.08
 
     ax2 = fig.add_subplot(223, sharex=ax1)
     join_axes_with_shared_x(ax1, ax2)
-
-    ax2.set_xlabel(r"$T$ (K)")
-    ax2.set_ylabel(r"$j_c / j_{c0}$")
-    ax2.set_ylim(0, 1)
-    sc = plot_series_cmap_log_scale(
-        ax=ax2,
-        plot_fn=ax2.plot,
-        series_list=series_list,
-        series_cmap_values=tunneling_params,
-        cmap_min=min(tunneling_params),
-        cmap_max=max(tunneling_params),
+    tunneling_params = np.array([0.1, 0.25, 0.5, 1, 2, 5, 10]) * 1e-3
+    sc = get_current_temperature_diff_tunneling_subplot(
+        ax2, "S1_N_S2", tunneling_params
     )
-
-    second_col_offset = 0.08
 
     ax3 = fig.add_subplot(222)
-    pos3 = ax3.get_position()
-    ax3.set_position([pos3.x0 + second_col_offset, pos3.y0, pos3.width, pos3.height])
-    for t in np.array([0.5, 1, 2]) * 1e-3:
-        df = get_current_angle_data("S1_N_S2", t)
-        df: pd.DataFrame = df[df["temperature"] == df["temperature"].min()]
-        ax3.plot(
-            df["phase"],
-            df["jc"] / df["jc"].abs().max(),
-            label=f"$t = {t * 1e3:.2f}$ meV",
-        )
-    ax3.set_xlabel(r"$\phi$ (rad)")
-    x_ticks = [-np.pi, 0, np.pi]
-    ax3.set_xticks(x_ticks)
-    ax3.set_xticklabels([r"$-\pi$", r"$0$", r"$\pi$"])
-    ax3.set_ylabel(r"$j / j_0$")
-    ax3.set_ylim(-1, 1)
-    ax3.legend()
+    move_axes(ax3, second_col_offset, 0)
+    tunneling_params = np.array([0.5, 1, 2]) * 1e-3
+    get_current_phase_diff_tunneling_subplot(ax3, "S1_N_S2", tunneling_params)
 
     ax4 = fig.add_subplot(224)
-    pos4 = ax4.get_position()
-    ax4.set_position([pos4.x0 + second_col_offset, pos4.y0, pos4.width, pos4.height])
-    critical_phases = []
-    for t in tunneling_params:
-        df = get_critical_current_data("S1_N_S2", t)
-        critical_phases.append(df["phase"].max())
-
-    series_list = list(
-        zip(tunneling_params[:, np.newaxis], np.array(critical_phases)[:, np.newaxis])
-    )
-    plot_series_cmap_log_scale(
-        ax=ax4,
-        plot_fn=ax4.scatter,
-        series_list=series_list,
-        series_cmap_values=tunneling_params,
-        cmap_min=min(tunneling_params),
-        cmap_max=max(tunneling_params),
-    )
-    ax4.plot(tunneling_params, critical_phases, color="k", zorder=-1)
-
-    ax4.axhline(y=np.pi / 2, color="gray", linestyle="--")
-    y_ticks = [0, np.pi / 2, np.pi]
-    ax4.set_yticks(y_ticks)
-    ax4.set_yticklabels([r"$0$", r"$\pi/2$", r"$\pi$"])
-    ax4.set_xlabel(r"$t$ (meV)")
-    ax4.set_ylabel(r"$\phi_{c0}$ (rad)")
-    ax4.set_xscale("log")
-
+    move_axes(ax4, second_col_offset, 0)
+    tunneling_params = np.array([0.1, 0.25, 0.5, 1, 2, 5, 10]) * 1e-3
+    get_phase_diff_tunneling_subplot(ax4, "S1_N_S2", tunneling_params)
     align_subplot_bottom(ax4, [ax1, ax2])
 
     # Add labels to the plots
@@ -876,5 +959,59 @@ def plot_current_diff_tunneling():
     ax4.text(0.10, 0.95, "(d)", transform=ax4.transAxes, va="top", ha="center")
 
     cbar = plt.colorbar(sc, ax=[ax1, ax2, ax3, ax4])
+    cbar.set_label(r"$t$ (eV)")
+    return fig
+
+
+def plot_junction_poster(layers_str: str, tunneling: float):
+    with plt.rc_context(POSTER_MPL_CONTEXT_ARGS):
+        fig = plt.figure(figsize=(POSTER_FIGURE_WIDTH, FIGURE_SIZE[1] * 1.5))
+        gs = gridspec.GridSpec(2, 2, width_ratios=[1, 1])  # 2 rows, 2 columns
+
+        ax1 = fig.add_subplot(gs[0, 0])
+        ax2 = fig.add_subplot(gs[1, 0])
+        ax3 = fig.add_subplot(gs[0, 1])
+        ax4 = fig.add_subplot(gs[1, 1])
+
+        # Move axes right
+        x_offset = 0.03
+        move_axes(ax3, x_offset, 0)
+        move_axes(ax4, x_offset, 0)
+
+        # Move axes down
+        move_axes(ax2, 0, -0.05)
+        move_axes(ax4, 0, -0.05)
+
+        # Temperature
+        cmap = trim_colormap(plt.get_cmap("plasma"), max_val=0.9)
+        sc = get_current_angle_subplot(ax1, layers_str, tunneling, cmap=cmap)
+        ax2.set_xlabel("")
+        get_critical_phase_subplot(ax2, layers_str, tunneling, cmap=cmap)
+
+        # Add colorbars
+        axes = [ax1, ax2]
+        cbar = fig.colorbar(sc, ax=axes)
+        cbar.set_label(r"$T$ (K)")
+        tick_values = [1.0, 2.0, 4.0, 8.0]
+        cbar.set_ticks(tick_values)
+        cbar.set_ticklabels([f"{t:.1f}" for t in tick_values])
+
+        # Tunneling
+        cmap = trim_colormap(plt.get_cmap("viridis"), max_val=0.9)
+        tunneling_params = np.array([0.1, 0.25, 0.5, 1, 2, 5, 10]) * 1e-3
+        sc = get_current_temperature_diff_tunneling_subplot(
+            ax3, "S1_N_S2", tunneling_params, cmap=cmap
+        )
+        get_phase_diff_tunneling_subplot(ax4, "S1_N_S2", tunneling_params, cmap=cmap)
+
+        axes = [ax3, ax4]
+        cbar = fig.colorbar(sc, ax=axes)
     cbar.set_label(r"$t$ (meV)")
+
+        # Add labels to the plots
+        ax1.text(0.10, 0.95, "(a)", transform=ax1.transAxes, va="top", ha="center")
+        ax2.text(0.10, 0.95, "(b)", transform=ax2.transAxes, va="top", ha="center")
+        ax3.text(0.90, 0.95, "(c)", transform=ax3.transAxes, va="top", ha="center")
+        ax4.text(0.10, 0.95, "(d)", transform=ax4.transAxes, va="top", ha="center")
+
     return fig
